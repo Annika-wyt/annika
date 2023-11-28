@@ -45,7 +45,6 @@
     <arg name="camera_info_file"        default="e_con_camera_4k.yaml"/>
 
     <!-- Aruco -->
-    <arg name="detect_aruco"            default="true"/>
     <arg name="camera_image_topic"      default="/camera/image_raw"/>
     <arg name="camera_info_topic"       default="/camera/camera_info"/>
     <arg name="aruco_size"              default="0.1"/>
@@ -107,26 +106,34 @@
         <include if="$(arg start_wheel_encoders)" file="$(find svea_sensors)/launch/sensors_launch/wheel_encoder.launch"></include>
 
         <!-- Static transforms for sensors -->
-        <include file="$(find svea_sensors)/launch/transforms.launch">
-            <arg name="is_indoors"  value="$(arg is_indoors)"/>
+        <node pkg="tf2_ros" type="static_transform_publisher" name="linkodom_broadcaster"    args="0 0 0 0 0 0 odom base_link" />   
+        <node pkg="tf2_ros" type="static_transform_publisher" name="imulink_broadcaster"    args="0 0 0.1 0 0 0 base_link imu" />
+        <node pkg="tf2_ros" type="static_transform_publisher" name="gpslink_broadcaster"    args="-0.058 -0.015  0.115 0 0 0 base_link gps" />
+        <node pkg="tf2_ros" type="static_transform_publisher" name="cameralink_broadcaster"    args="0.36 0.05 0.225 -1.57 0 -1.57 base_link camera" />  <!-- for e-com-4k -->
+        <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco_broadcaster"  args="0 0 0 0 0 0 map aruco0_actual" />
+
+        <group if="$(arg is_indoors)">
+            <node pkg="tf2_ros" type="static_transform_publisher" name="lidarlink_broadcaster"  args="0.284 0 0.2 0 0 0 1 base_link laser" />
+            <node pkg="tf2_ros" type="static_transform_publisher" name="t265_link_broadcaster"  args="0.09 0 0.215 0 -1.57 3.14 base_link t265_camera_pose_frame" />
+            <node pkg="tf2_ros" type="static_transform_publisher" name="t265_odom_broadcaster"  args="0.09 0 0.215 0 -1.57 3.14 odom t265_camera_odom_frame" />
+        </group>
+
+        <!-- Start camera -->
+        <include file="$(find svea_sensors)/launch/sensors_launch/camera.launch">
+            <arg name="camera_device_id"        value="$(arg camera_device_id)"/>
+            <arg name="camera_info_file"        value="$(arg camera_info_file)"/>
         </include>
 
-        <!-- Start ArUco -->
-        <group if="$(arg detect_aruco)">
-            <include file="$(find svea_sensors)/launch/sensors_launch/camera.launch">
-                <arg name="camera_device_id"        value="$(arg camera_device_id)"/>
-                <arg name="camera_info_file"        value="$(arg camera_info_file)"/>
-            </include>
+        <!-- Start ArUco Detection-->
+        <include file="$(find svea_sensors)/launch/sensors_launch/aruco_marker_detection.launch">
+            <arg name="camera_image_topic"      value="$(arg camera_image_topic)"/>
+            <arg name="camera_info_topic"       value="$(arg camera_info_topic)"/>
+            <arg name="aruco_size"              value="$(arg aruco_size)"/>
+        </include>
 
-            <include file="$(find svea_sensors)/launch/sensors_launch/aruco_marker_detection.launch">
-                <arg name="camera_image_topic"      value="$(arg camera_image_topic)"/>
-                <arg name="camera_info_topic"       value="$(arg camera_info_topic)"/>
-                <arg name="aruco_size"              value="$(arg aruco_size)"/>
-            </include>
-
-            <node name="aruco_pose" pkg="svea_sensors" type="aruco_pose.py" output="screen"/>
+        <!-- Start ArUco Positioning-->
+        <node name="aruco_pose" pkg="svea_sensors" type="aruco_pose.py" output="screen"/>
             
-        </group>
     </group>
 
     <node pkg="svea_sensors" type="odom_to_map" name="odom_to_map" output="screen">
@@ -134,57 +141,6 @@
         <param name="wait_for_transform"    value="$(arg wait_for_transform)"/>
         <param name="publish_odometry"      value="$(arg publish_odometry)"/>
         <param name="publish_pose"          value="$(arg publish_pose)"/>
-    </node>
-
-    <!-- Do not start the sensors, useful when running from a bag file -->
-    <group if="$(arg is_sim)">
-        <param name="use_sim_time"          value="true" />
-    </group>
-
-    <!-- Robot localization (Local EKF)-->
-    <node pkg="robot_localization" type="ekf_localization_node" name="ekf_local" clear_params="true" output="screen">
-        <rosparam command="load" file="$(find svea_sensors)/params/robot_localization/local_ekf.yaml" />
-        <!-- initial_state: [x,          y,          z, 
-                             roll,       pitch,      yaw, 
-                             x_dot,      y_dot,      z_dot, 
-                             roll_dot,   pitch_dot,  yaw_dot, 
-                             x_dot_dot,  y_dot_dot,  z_dot_dot]-->
-        <rosparam subst_value="true">
-        initial_state: [$(arg initial_pose_x),  $(arg initial_pose_y),  0.0, 
-                        0.0,                    0.0,                    $(arg initial_pose_a), 
-                        0.0,                    0.0,                    0.0, 
-                        0.0,                    0.0,                    0.0, 
-                        0.0,                    0.0,                    0.0]
-        </rosparam>
-        <param name="publish_tf"            value="true"/>
-        <param name="odom0"                 value="rs/t265_camera/odom/sample"/>
-        <param name="imu0"                  value="imu/data"/>
-        <param name="twist0"                value="actuation_twist"/>
-        <param name="twist1"                value="wheel_encoder_twist"/>
-    </node>
-
-    <!-- Global EKF -->
-    <node unless="$(arg is_indoors)" pkg="robot_localization" type="ekf_localization_node" name="ekf_global" clear_params="true" output="screen">
-        <rosparam command="load" file="$(find svea_sensors)/params/robot_localization/global_ekf.yaml"/>
-        <!-- initial_state: [x,          y,          z, 
-                             roll,       pitch,      yaw, 
-                             x_dot,      y_dot,      z_dot, 
-                             roll_dot,   pitch_dot,  yaw_dot, 
-                             x_dot_dot,  y_dot_dot,  z_dot_dot]-->
-        <rosparam subst_value="true">
-        initial_state: [$(arg initial_pose_x),  $(arg initial_pose_y),  0.0, 
-                        0.0,                    0.0,                    $(arg initial_pose_a), 
-                        0.0,                    0.0,                    0.0, 
-                        0.0,                    0.0,                    0.0, 
-                        0.0,                    0.0,                    0.0]
-        </rosparam>
-        <param name="publish_tf"            value="true"/>
-        <param name="odom0"                 value="odometry/gps"/>
-        <param name="imu0"                  value="imu/data"/>
-        <param name="twist0"                value="actuation_twist"/>
-        <param name="twist1"                value="wheel_encoder_twist"/>
-        <remap from="/odometry/filtered"    to="/odometry/filtered/global"/>
-        <remap from="/set_pose"             to="/global/set_pose"/>
     </node>
     
 </launch>

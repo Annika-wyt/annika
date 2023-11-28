@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <launch>
     <!-- Launch file arguments -->
-    <arg name="camera_image_topic"             default="/camera/image_raw"/>
-    <arg name="camera_info_topic"             default="/camera/camera_info"/>
+    <arg name="camera_image_topic"      default="/camera/image_raw"/>
+    <arg name="camera_info_topic"       default="/camera/camera_info"/>
     <arg name="aruco_dict"              default="DICT_4X4_250"/>
     <arg name="aruco_size"              default="0.1"/>
     <arg name="aruco_tf_name"           default="aruco"/>

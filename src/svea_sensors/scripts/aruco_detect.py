@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 
 import numpy as np
 import cv2
@@ -29,7 +29,6 @@ def replace_base(old, new):
     ns += new.split('/')
     return '/'.join(ns)
 
-
 class aruco_detect:
 
     def __init__(self):
@@ -40,17 +39,17 @@ class aruco_detect:
 
         ## Parameters
 
-        self.SUB_IMAGE = load_param('~sub_image', '/camera/image_raw')
-        self.SUB_CAMERA_INFO = replace_base(self.SUB_IMAGE, 'camera_info')
+        self.SUB_IMAGE = rospy.get_param('~sub_image', '/camera/image_raw')
+        self.SUB_CAMERA_INFO = rospy.get_param('~camera_info', '/camera/camera_info')
+        
         
         # self.SUB_IMAGE = load_param('~sub_image', '/camera/arducam/camera/image_raw')
         # self.SUB_CAMERA_INFO = load_param('~camera_info', '/camera/arducam/camera/camera_info')
 
-        self.ARUCO_DICT_NAME = load_param('~aruco_dict', 'DICT_4X4_250')
-        self.ARUCO_SIZE = load_param('~aruco_size', '0.365')
-        self.ARUCO_TF_NAME = load_param('~aruco_tf_name', 'aruco_measured_')
-
-        self.PUB_ARUCO_POSE = load_param('~pub_aruco_pose', 'aruco_pose')
+        self.ARUCO_DICT_NAME = rospy.get_param('~aruco_dict', 'DICT_4X4_250')
+        self.ARUCO_SIZE = rospy.get_param('~aruco_size', '0.365')
+        self.ARUCO_TF_NAME = rospy.get_param('~aruco_tf_name', 'aruco_measured_')
+        self.PUB_ARUCO_POSE = rospy.get_param('~pub_aruco_pose', 'aruco_pose')
 
         ## Aruco
 
@@ -145,11 +144,8 @@ class aruco_detect:
             self.pub_aruco_pose.publish(marker)
 
 if __name__ == '__main__':
-
     ##  Global resources  ##
-
     bridge = CvBridge()
 
     ##  Start node  ##
-
     aruco_detect().run()

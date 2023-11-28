@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Launch file arguments -->
+    <arg name="camera_image_topic"             default="/camera/image_raw"/>
+    <arg name="camera_info_topic"             default="/camera/camera_info"/>
+    <arg name="aruco_dict"              default="DICT_4X4_250"/>
+    <arg name="aruco_size"              default="0.1"/>
+    <arg name="aruco_tf_name"           default="aruco"/>
+
+    <!-- Nodes -->
+    <node name="aruco_detect" pkg="svea_sensors" type="aruco_detect.py" output="screen">
+        <param name="sub_image"         value="$(arg camera_image_topic)"/>
+        <param name="camera_info"       value="$(arg camera_info_topic)"/>
+        <param name="aruco_dict"        value="$(arg aruco_dict)"/>
+        <param name="aruco_size"        value="$(arg aruco_size)"/>
+        <param name="aruco_tf_name"     value="$(arg aruco_tf_name)"/>
+    </node>
+</launch>

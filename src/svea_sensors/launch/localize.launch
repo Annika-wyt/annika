@@ -40,8 +40,17 @@
     <arg name="publish_odometry"        default="true"/>
     <arg name="publish_pose"            default="true"/>
 
-    <!-- Nodes -->
+    <!-- camera for detection -->
+    <arg name="camera_device_id"        default="1"/>
+    <arg name="camera_info_file"        default="e_con_camera_4k.yaml"/>
 
+    <!-- Aruco -->
+    <arg name="detect_aruco"            default="true"/>
+    <arg name="camera_image_topic"      default="/camera/image_raw"/>
+    <arg name="camera_info_topic"       default="/camera/camera_info"/>
+    <arg name="aruco_size"              default="0.1"/>
+
+    <!-- Nodes -->
     <!-- Start low-level interface -->
     <group if="$(arg start_serial)">
         <node pkg="rosserial_python" type="serial_node.py" name="serial_node">
@@ -89,7 +98,7 @@
         </group>
 
         <!-- Start IMU -->
-        <include file="$(find svea_sensors)/launch/sensors_launch/imu.launch"></include>
+        <!-- <include file="$(find svea_sensors)/launch/sensors_launch/imu.launch"></include> -->
 
         <!-- Start controller -->
         <include file="$(find svea_sensors)/launch/sensors_launch/controller.launch"></include>
@@ -101,6 +110,20 @@
         <include file="$(find svea_sensors)/launch/transforms.launch">
             <arg name="is_indoors"  value="$(arg is_indoors)"/>
         </include>
+
+        <!-- Start ArUco -->
+        <group if="$(arg detect_aruco)">
+            <include file="$(find svea_sensors)/launch/sensors_launch/camera.launch">
+                <arg name="camera_device_id"        value="$(arg camera_device_id)"/>
+                <arg name="camera_info_file"        value="$(arg camera_info_file)"/>
+            </include>
+
+            <include file="$(find svea_sensors)/launch/sensors_launch/aruco_marker_detection.launch">
+                <arg name="camera_image_topic"      value="$(arg camera_image_topic)"/>
+                <arg name="camera_info_topic"       value="$(arg camera_info_topic)"/>
+                <arg name="aruco_size"              value="$(arg aruco_size)"/>
+            </include>
+        </group>
     </group>
 
     <node pkg="svea_sensors" type="odom_to_map" name="odom_to_map" output="screen">
@@ -160,19 +183,5 @@
         <remap from="/odometry/filtered"    to="/odometry/filtered/global"/>
         <remap from="/set_pose"             to="/global/set_pose"/>
     </node>
-
-    <include file="$(find svea_sensors)/launch/camera.launch">
-        <arg name="camera_info_file"    value="$(arg camera_info_file)"/>
-        <arg name="device_id"           value="$(arg device_id)"/>
-    </include>
-
-    <group if="$(arg detect_aruco)">
-        <node name="aruco_detect" pkg="svea_sensors" type="aruco_detect.py" output="screen"/>
-            <param name="sub_image" value="$(arg image)"/>
-            <param name="camera_info" value="$(arg camera_info_file)"/>
-            <param name="aruco_dict" value="$(arg aruco_dict)"/>
-            <param name="aruco_size" value="$(arg aruco_size)"/>
-            <param name="aruco_tf_name" value="$(arg aruco_tf_name)"/>
-    </group>
     
 </launch>

@@ -9,25 +9,11 @@ import tf2_ros
 import tf_conversions
 import message_filters as mf
 from sensor_msgs.msg import Image, CameraInfo
-from aruco_msgs.msg import Marker
+from aruco_msgs.msg import Marker, MarkerArray
 from visualization_msgs.msg import Marker as VM
 from geometry_msgs.msg import TransformStamped, Point, Quaternion
 from cv_bridge import CvBridge
-
-
-def load_param(name, value=None):
-    if value is None:
-        assert rospy.has_param(name), f'Missing parameter "{name}"'
-    return rospy.get_param(name, value)
-
-def replace_base(old, new):
-    split_last = lambda xs: (xs[:-1], xs[-1])
-    is_private = new.startswith('~')
-    is_global = new.startswith('/')
-    assert not (is_private or is_global)
-    ns, _ = split_last(old.split('/'))
-    ns += new.split('/')
-    return '/'.join(ns)
+from svea_msgs.msg import Aruco, ArucoArray
 
 class aruco_detect:
 
@@ -38,18 +24,13 @@ class aruco_detect:
         rospy.init_node('aruco_detect')
 
         ## Parameters
-
         self.SUB_IMAGE = rospy.get_param('~sub_image', '/camera/image_raw')
         self.SUB_CAMERA_INFO = rospy.get_param('~camera_info', '/camera/camera_info')
         
-        
-        # self.SUB_IMAGE = load_param('~sub_image', '/camera/arducam/camera/image_raw')
-        # self.SUB_CAMERA_INFO = load_param('~camera_info', '/camera/arducam/camera/camera_info')
-
         self.ARUCO_DICT_NAME = rospy.get_param('~aruco_dict', 'DICT_4X4_250')
         self.ARUCO_SIZE = rospy.get_param('~aruco_size', '0.365')
         self.ARUCO_TF_NAME = rospy.get_param('~aruco_tf_name', 'aruco_measured_')
-        self.PUB_ARUCO_POSE = rospy.get_param('~pub_aruco_pose', 'aruco_pose')
+        self.PUB_ARUCO_POSE = rospy.get_param('~pub_aruco_pose', '/aruco/pose')
 
         ## Aruco
 
@@ -63,9 +44,9 @@ class aruco_detect:
         self.br = tf2_ros.TransformBroadcaster()
 
         ## Publishers
-
-        self.pub_aruco_pose = rospy.Publisher(self.PUB_ARUCO_POSE, Marker, queue_size=5)
+        # self.pub_aruco_pose = rospy.Publisher(self.PUB_ARUCO_POSE, MarkerArray, queue_size=5)
         self.pub_aruco_marker = rospy.Publisher('/aruco/marker', VM, queue_size=5)
+        self.pub_aruco_marker_coordinate = rospy.Publisher('/aruco/detection', ArucoArray, queue_size=5)
 
         rospy.loginfo(self.PUB_ARUCO_POSE)
 
@@ -98,7 +79,9 @@ class aruco_detect:
             np.array(camera_info.D).reshape((1, 5)),          # camera distortion
         )[:2] # [:2] due to python2/python3 compatibility
 
-        for aruco_id, rvec, tvec in zip(ids, rvecs, tvecs):
+        markerArray = MarkerArray()
+        CoorArray = ArucoArray()
+        for aruco_id, aruco_corner, rvec, tvec in zip(ids, corners, rvecs, tvecs):
             mtx = np.zeros((4, 4))
             mtx[:3, :3] = cv2.Rodrigues(rvec)[0]
             mtx[:3, 3] = tvec
@@ -107,7 +90,6 @@ class aruco_detect:
             rotation = tf_conversions.transformations.quaternion_from_matrix(mtx)
 
             ## Broadcast
-
             t = TransformStamped()
             t.header = image.header
             t.child_frame_id = self.ARUCO_TF_NAME + str(aruco_id[0])
@@ -116,16 +98,21 @@ class aruco_detect:
 
             self.br.sendTransform(t)
 
-            ## Publish
+            ##get the 2D image coordinate of the aruco marker
+            aruco_msg = Aruco()
+            markerCorners = aruco_corner[0]
 
+            # aruco_msg.header = image.header
+            aruco_msg.image_x, aruco_msg.image_y = np.mean(markerCorners, axis=0)
+            
+            ## Publish
             marker = Marker()
             marker.header = image.header
             marker.id = int(aruco_id)
             marker.pose.pose.position = Point(*translation)
             marker.pose.pose.orientation = Quaternion(*rotation)
             marker.confidence = 1 # NOTE: Set this to something more relevant?
-
-
+            aruco_msg.marker = marker
             Vmarker = VM()
             Vmarker.header = image.header
             Vmarker.id = int(aruco_id)
@@ -138,10 +125,14 @@ class aruco_detect:
             Vmarker.color.r = 0.0
             Vmarker.color.g = 1.0
             Vmarker.color.b = 0.0
-
-
+            markerArray.markers.append(marker)
+            CoorArray.arucos.append(aruco_msg)
             self.pub_aruco_marker.publish(Vmarker)
-            self.pub_aruco_pose.publish(marker)
+
+        # see if need the header from the markerArray
+        # markerArray.header = 
+        # self.pub_aruco_pose.publish(markerArray)
+        self.pub_aruco_marker_coordinate.publish(CoorArray)
 
 if __name__ == '__main__':
     ##  Global resources  ##

@@ -13,7 +13,7 @@ from tf.transformations import quaternion_from_euler #euler_from_quaternion,
 # from tf2_msgs.msg import TFMessage
 # from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseWithCovarianceStamped, TransformStamped, Quaternion, PoseStamped #Point, 
-from aruco_msgs.msg import Marker
+from aruco_msgs.msg import Marker, MarkerArray
 
 ###################################################################
 ###Estimate the pose of SVEA bsaed on the ArUco marker detection###
@@ -26,11 +26,11 @@ class aruco_pose:
         rospy.init_node('aruco_pose')
 
         # Get parameters from launch file
-        self.aruco_pose_topic = rospy.get_param("~aruco_pose_topic", "/aruco_pose")
+        self.aruco_pose_topic = rospy.get_param("~aruco_pose_topic", "/aruco/pose")
         self.aruco_id = rospy.get_param("~aruco_id", 0)
 
         # Subscriber
-        rospy.Subscriber(self.aruco_pose_topic, Marker, self.aruco_callback, queue_size=1)
+        rospy.Subscriber(self.aruco_pose_topic, MarkerArray, self.aruco_callback, queue_size=1)
         
         # Publisher
         self.pose_pub = rospy.Publisher("static/pose", PoseWithCovarianceStamped, queue_size=1) #publish to pose0 in ekf
@@ -53,18 +53,19 @@ class aruco_pose:
         rospy.spin()
 
     def aruco_callback(self, msg):    
-        if msg.id == self.aruco_id:
-            if (msg.pose.pose.position.x**2 + msg.pose.pose.position.y**2 + msg.pose.pose.position.z**2) <= 1.5:
-                self.transform_aruco(msg)
+        for marker in msg.markers:
+            if marker.id == self.aruco_id:
+                if (marker.pose.pose.position.x**2 + marker.pose.pose.position.y**2 + marker.pose.pose.position.z**2) <= 1.5:
+                    self.transform_aruco(marker)
                 
     ## Estimate the pose of SVEA based on the ArUco marker detection
     ## Assume the ArUco marker and the Map frame coincide
-    def transform_aruco(self, msg):
+    def transform_aruco(self, marker):
         try:
             # frame_id: map, child_frame_id: aruco
             transform_aruco_map = self.buffer.lookup_transform("map", 'aruco0_actual', rospy.Time.now(), rospy.Duration(0.5)) 
             # frame_id: aruco , child_frame_id: base_link
-            transform_baselink_aruco = self.buffer.lookup_transform(self.frame, "base_link", msg.header.stamp, rospy.Duration(0.5)) 
+            transform_baselink_aruco = self.buffer.lookup_transform(self.frame, "base_link", marker.header.stamp, rospy.Duration(0.5)) 
 
             pose_aruco_baselink = PoseStamped()
             pose_aruco_baselink.header = transform_baselink_aruco.header
@@ -72,7 +73,7 @@ class aruco_pose:
             pose_aruco_baselink.pose.orientation = transform_baselink_aruco.transform.rotation
             
             adjust_orientation = TransformStamped()
-            adjust_orientation.header = msg.header
+            adjust_orientation.header = marker.header
             adjust_orientation.header.frame_id = "map"
             adjust_orientation.child_frame_id = 'aruco0'
             adjust_orientation.transform.rotation = Quaternion(*quaternion_from_euler(1.57, 0, 1.57))
@@ -84,10 +85,10 @@ class aruco_pose:
             position_final = tf2_geometry_msgs.do_transform_pose(position, transform_aruco_map) 
             position_final.pose.position.z = 0.0
 
-            self.publish_pose(position_final.pose.position, position_final.pose.orientation, msg.header.stamp)
+            self.publish_pose(position_final.pose.position, position_final.pose.orientation, marker.header.stamp)
 
             # To check if the transformation is correct
-            self.broadcast_aruco(position_final.pose.position, position_final.pose.orientation, msg.header.stamp)
+            self.broadcast_aruco(position_final.pose.position, position_final.pose.orientation, marker.header.stamp)
 
             # rospy.loginfo("Received ARUCO")
         except Exception as e:
@@ -116,7 +117,6 @@ class aruco_pose:
         msg.child_frame_id = "base_link"
         msg.transform.translation = translation
         msg.transform.rotation = quaternion
-        print(msg)
         self.br.sendTransform(msg)
 
 if __name__ == '__main__':

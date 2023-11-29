@@ -143,4 +143,6 @@
         <param name="publish_pose"          value="$(arg publish_pose)"/>
     </node>
     
+    <node name="perspective_3_point" pkg="svea_sensors" type="perspective_3_point.py" output="screen"/>
+    
 </launch>

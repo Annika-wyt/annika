@@ -106,6 +106,7 @@
         <include if="$(arg start_wheel_encoders)" file="$(find svea_sensors)/launch/sensors_launch/wheel_encoder.launch"></include>
 
         <!-- Static transforms for sensors -->
+        <node pkg="tf2_ros" type="static_transform_publisher" name="odommap_broadcaster"    args="0 0 0 0 0 0 map odom" />   
         <node pkg="tf2_ros" type="static_transform_publisher" name="linkodom_broadcaster"    args="0 0 0 0 0 0 odom base_link" />   
         <node pkg="tf2_ros" type="static_transform_publisher" name="imulink_broadcaster"    args="0 0 0.1 0 0 0 base_link imu" />
         <node pkg="tf2_ros" type="static_transform_publisher" name="gpslink_broadcaster"    args="-0.058 -0.015  0.115 0 0 0 base_link gps" />

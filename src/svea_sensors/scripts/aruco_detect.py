@@ -11,10 +11,10 @@ import message_filters as mf
 from sensor_msgs.msg import Image, CameraInfo
 from aruco_msgs.msg import Marker, MarkerArray
 from visualization_msgs.msg import Marker as VM
-from geometry_msgs.msg import TransformStamped, Point, Quaternion
+from geometry_msgs.msg import TransformStamped, Point, Quaternion, Vector3
 from cv_bridge import CvBridge
 from svea_msgs.msg import Aruco, ArucoArray
-
+from std_msgs.msg import ColorRGBA
 class aruco_detect:
 
     def __init__(self):
@@ -118,13 +118,8 @@ class aruco_detect:
             Vmarker.id = int(aruco_id)
             Vmarker.pose.position = Point(*translation)
             Vmarker.pose.orientation = Quaternion(*rotation)
-            Vmarker.scale.x = 0.1
-            Vmarker.scale.y = 0.1
-            Vmarker.scale.z = 0.1
-            Vmarker.color.a = 1.0
-            Vmarker.color.r = 0.0
-            Vmarker.color.g = 1.0
-            Vmarker.color.b = 0.0
+            Vmarker.scale = Vector3(*[0.1, 0.1, 0.1])
+            Vmarker.color = ColorRGBA(*[0, 1, 0, 1])
             markerArray.markers.append(marker)
             CoorArray.arucos.append(aruco_msg)
             self.pub_aruco_marker.publish(Vmarker)
@@ -132,6 +127,7 @@ class aruco_detect:
         # see if need the header from the markerArray
         # markerArray.header = 
         # self.pub_aruco_pose.publish(markerArray)
+
         self.pub_aruco_marker_coordinate.publish(CoorArray)
 
 if __name__ == '__main__':

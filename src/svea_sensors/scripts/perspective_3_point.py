@@ -8,6 +8,8 @@ from aruco_msgs.msg import Marker, MarkerArray
 from svea_msgs.msg import Aruco, ArucoArray
 from sensor_msgs.msg import CameraInfo
 from tf2_msgs.msg import TFMessage
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Point, Quaternion
 
 import numpy as np
 import cv2
@@ -24,20 +26,23 @@ class perspective_3_point:
         # self.SUB_ARUCO_POSE = rospy.get_param('~pub_aruco_pose', '/aruco/pose')
         rospy.Subscriber('/aruco/detection', ArucoArray, self.ArucoDetectionCallback, queue_size=1)
         rospy.Subscriber('/camera/camera_info', CameraInfo, self.CameraInfoCallback, queue_size=1)
-        # rospy.Subscriber('/tf', TFMessage, self.InitialGuessCameraPose, queue_size=1)
+        rospy.Subscriber('/ekf_estimation/odometry/filtered', Odometry, self.InitialGuessCameraPoseCallback, queue_size=1)
         
         # Publisher
-        
+        self.PosePub = rospy.Publisher('/p3p/odometry', Odometry, queue_size=1)
+
         # for plotting
         # rospy.Subscriber('/qualisys/aruco11/pose', PoseStamped, self.aruco_callback, queue_size=1)
         # rospy.Subscriber('/qualisys/aruco12/pose', PoseStamped, self.aruco_callback, queue_size=1)
         # rospy.Subscriber('/qualisys/aruco13/pose', PoseStamped, self.aruco_callback, queue_size=1)
 
         # Variable
-        self.aruco_2D = []
-        self.aruco_3D = []
-        self.aruco_id = []
-
+        self.aruco2D = []
+        self.aruco3D = []
+        self.arucoId = []
+        self.header, self.estimatedRotation, self.estimatedTranslation = None, None, None
+        self.RUNNING = False
+        self.DECODEARUCO = False
         self.cameraD, self.cameraK = None, None
 
         # Transformation
@@ -48,54 +53,60 @@ class perspective_3_point:
     def run(self):
         rospy.spin()
 
-    def InitialGuessCameraPose(self, timestamp):
-        # use wheel encoder, imu, controller input to guess the initial pose of camera at every timestamp
-        try:
-            transformMapCamera = self.buffer.lookup_transform("map", "camera", timestamp, rospy.Duration(4))
-            estimatedRotation = tf_trans.quaternion_matrix([transformMapCamera.transform.rotation.x,
-                                                            transformMapCamera.transform.rotation.y,
-                                                            transformMapCamera.transform.rotation.z,
-                                                            transformMapCamera.transform.rotation.w])[:3, :3]
-            estimatedRotation, _ = cv2.Rodrigues(estimatedRotation)
-            estimatedTranslation = tf_trans.translation_matrix([transformMapCamera.transform.translation.x, 
-                                                                transformMapCamera.transform.translation.y,
-                                                                transformMapCamera.transform.translation.z])[:3, -1]
-            return estimatedTranslation, estimatedRotation
-        except Exception as e:
-            rospy.logerr(f"No transform from map to camera, \n {e}")
-            return None, None
+    def InitialGuessCameraPoseCallback(self, msg):
+        if self.DECODEARUCO and self.estimatedRotation == None and self.estimatedTranslation == None:
+            # get initial guess
+            rospy.loginfo(f"qua_mat, \n {tf_trans.quaternion_matrix(msg.pose.pose.orientation)}")
+            self.estimatedRotation = cv2.Rodrigues(tf_trans.quaternion_matrix(msg.pose.pose.orientation))
+            self.estimatedTranslation = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
     
     def ArucoDetectionCallback(self, msg):
-        self.aruco_2D = []
-        self.aruco_3D = []
-        self.aruco_id = []
+        self.DECODEARUCO = True
+        self.aruco2D = []
+        self.aruco3D = []
+        self.arucoId = []
         for aruco in msg.arucos:
-            self.aruco_id.append(aruco.marker.id)
-            self.aruco_2D.append([aruco.image_x, aruco.image_y])
-            self.aruco_3D.append([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])
-        if len(self.aruco_id) >= 3:
-            self.estimation(np.array(self.aruco_2D), np.array(self.aruco_3D), aruco.marker.header.stamp)
+            self.arucoId.append(aruco.marker.id)
+            self.aruco2D.append(([aruco.image_x, aruco.image_y]))
+            self.aruco3D.append([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])
+        if len(self.arucoId) >= 3:
+            self.estimation(np.array(self.aruco2D, dtype=np.float64).T, np.array(self.aruco3D, dtype=np.float64).T, self.header, self.estimatedRotation, self.estimatedTranslation)
+        self.header, self.estimatedTranslation, self.estimatedRotation = None, None, None
+        self.DECODEARUCO = False
 
     def CameraInfoCallback(self, msg):
-        self.cameraD = msg.D
-        self.cameraK = msg.K
+        self.cameraD = np.array(msg.D, dtype=np.float64)
+        self.cameraK = np.array(msg.K, dtype=np.float64)
     
-    def estimation(self, aruco2D, aruco3D, timestamp):
-        estimatedTranslation, estimatedRotation = self.InitialGuessCameraPose(timestamp)
+    def estimation(self, aruco2D, aruco3D, header, estimatedRotation, estimatedTranslation):
         success, rotation, translation = None, None, None
         if estimatedTranslation == None or estimatedRotation == None:
-            if len(self.aruco_id >= 4):
-                success, rotation, translation = cv2.solvePnP(aruco3D, aruco2D, self.cameraK, self.cameraD)
+            if len(self.arucoId) >= 4:
+                rospy.loginfo("no guess")
+                rospy.loginfo(f"aruco3D, aruco2D, {aruco3D}, \n {aruco2D}")
+                temp = cv2.solvePnP(aruco3D, aruco2D, self.cameraK, self.cameraD)
+                print(temp)
+                # success, rotation, translation = cv2.solvePnP(aruco3D, aruco2D, self.cameraK, self.cameraD)
             else:
                 rospy.logerr(f"cannot find estimated Translation or Rotation and less than 4 landmarks")
         else:
+            rospy.loginfo("Guess")
             options = {'flags': cv2.SOLVEPNP_ITERATIVE, 'useExtrinsicGuess': True}
-            success, rotation, translation = cv2.solvePnP(aruco3D, aruco2D, self.cameraK, self.cameraD, rvec=estimatedRotation, tvec=estimatedTranslation, options=options)
-        print("====================================")
-        print(success)
-        print("====================================")
-        print(rotation)
-        print("====================================")
-        print(translation)
+            success, rotation, translation = cv2.solvePnP(aruco3D.T, aruco2D.T, self.cameraK, self.cameraD, rvec=estimatedRotation, tvec=estimatedTranslation, options=options)
+        # print(f"==================================== \n, {success}, \n {rotation}, \n {translation}, \n ====================================")
+        # if success:
+            # self.publish_pose(rotation, translation, header)
+
+    def publish_pose(self, rotationVec, translationVec, header):
+        rotation = tf_trans.quaternion_from_matrix(cv2.Rodrigues(rotationVec))
+        translation = tf_trans.translation_matrix(translationVec)
+        msg = Odometry()
+        msg.header = header
+        msg.child_frame_id = "base_link"
+        msg.pose.pose.position = Point(*translation)
+        msg.pose.pose.orientation = Quaternion(*rotation)
+        # msg.pose.covariance = ##something meaningful???
+        self.PosePub(msg)
+
 if __name__ == '__main__':
     perspective_3_point().run()

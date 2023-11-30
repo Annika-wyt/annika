@@ -113,6 +113,7 @@ class aruco_detect:
             marker.pose.pose.orientation = Quaternion(*rotation)
             marker.confidence = 1 # NOTE: Set this to something more relevant?
             aruco_msg.marker = marker
+            
             Vmarker = VM()
             Vmarker.header = image.header
             Vmarker.id = int(aruco_id)

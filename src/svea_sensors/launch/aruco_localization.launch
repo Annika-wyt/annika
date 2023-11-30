@@ -137,6 +137,36 @@
             
     </group>
 
+    <!-- Robot localization (initial estimation EKF)-->
+    <node pkg="robot_localization" type="ekf_localization_node" name="ekf_estimation" clear_params="true" output="screen">
+        <rosparam command="load" file="$(find svea_sensors)/params/robot_localization/estimation_ekf.yaml" />
+        <!-- initial_state: [x,          y,          z, 
+                             roll,       pitch,      yaw, 
+                             x_dot,      y_dot,      z_dot, 
+                             roll_dot,   pitch_dot,  yaw_dot, 
+                             x_dot_dot,  y_dot_dot,  z_dot_dot]-->
+        <rosparam subst_value="true">
+        initial_state: [$(arg initial_pose_x),  $(arg initial_pose_y),  0.0, 
+                        0.0,                    0.0,                    $(arg initial_pose_a), 
+                        0.0,                    0.0,                    0.0, 
+                        0.0,                    0.0,                    0.0, 
+                        0.0,                    0.0,                    0.0]
+        </rosparam>
+        <param name="publish_tf"            value="false"/>
+        <param name="odom0"                 value="rs/t265_camera/odom/sample"/>
+        <param name="imu0"                  value="imu/data"/>
+        <param name="twist0"                value="actuation_twist"/>
+        <param name="twist1"                value="wheel_encoder_twist"/>
+        <remap from="/odometry/filtered"    to="/ekf_estimation/odometry/filtered/"/>
+    </node>
+
+    <node pkg="svea_sensors" type="odom_to_map" name="odom_to_map" output="screen">
+        <param name="map_frame"             value="$(arg map_frame)"/>
+        <param name="wait_for_transform"    value="$(arg wait_for_transform)"/>
+        <param name="publish_odometry"      value="$(arg publish_odometry)"/>   
+        <param name="publish_pose"          value="$(arg publish_pose)"/>
+    </node>
+    
     <!-- Robot localization (Local EKF)-->
     <node pkg="robot_localization" type="ekf_localization_node" name="ekf_local" clear_params="true" output="screen">
         <rosparam command="load" file="$(find svea_sensors)/params/robot_localization/local_ekf.yaml" />
@@ -153,19 +183,14 @@
                         0.0,                    0.0,                    0.0]
         </rosparam>
         <param name="publish_tf"            value="true"/>
-        <param name="odom0"                 value="rs/t265_camera/odom/sample"/>
+        <param name="odom0"                 value="/p3p/odometry"/>
         <param name="imu0"                  value="imu/data"/>
         <param name="twist0"                value="actuation_twist"/>
         <param name="twist1"                value="wheel_encoder_twist"/>
+        <remap from="/odometry/filtered"    to="/ekf_local/odometry/filtered/"/>
     </node>
+    
+    <!-- Perspective-3-point algorithm -->
+    <node name="perspective_3_point" pkg="svea_sensors" type="perspective_3_point.py" output="screen"/>
 
-    <node pkg="svea_sensors" type="odom_to_map" name="odom_to_map" output="screen">
-        <param name="map_frame"             value="$(arg map_frame)"/>
-        <param name="wait_for_transform"    value="$(arg wait_for_transform)"/>
-        <param name="publish_odometry"      value="$(arg publish_odometry)"/>   
-        <param name="publish_pose"          value="$(arg publish_pose)"/>
-    </node>
-    
-    <!-- <node name="perspective_3_point" pkg="svea_sensors" type="perspective_3_point.py" output="screen"/> -->
-    
 </launch>

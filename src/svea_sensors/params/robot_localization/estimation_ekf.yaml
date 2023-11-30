@@ -16,7 +16,7 @@ print_diagnostics: true
 debug: false
 debug_out_file: /home/nvidia/bagfiles/localizationlog.txt
 
-publish_tf: true
+publish_tf: false
 
 publish_acceleration: false
 
@@ -31,41 +31,25 @@ world_frame: odom           # Defaults to the value of odom_frame if unspecified
 
 ##########################################
 # RS T265 ################################
-# odom0: rs/t265_camera/odom/sample
+odom0: rs/t265_camera/odom/sample
 
-# odom0_config: [false, false, false,
-#                false, false, false,
-#                false, false, false,
-#                true, true, true,
-#                false, false, false]
-
-# #odom0_config: [x, y, z,
-# #               R, P, Y,
-# #               x_dot, y_dot, z_dot,
-# #               R_dot, P_dot, Y_dot,
-# #               x_dot_dot, y_dot_dot, z_dot_dot]
-
-# odom0_queue_size: 10
-# odom0_nodelay: true
-
-# odom0_differential: false
-# odom0_relative: true
-
-##########################################
-# Visual #################################
-odom0: /p3p/odometry
-
-odom0_config: [true,  true,  true,
+odom0_config: [false, false, false,
                false, false, false,
                false, false, false,
-               false, false, false,
+               true, true, true,
                false, false, false]
+
+#odom0_config: [x, y, z,
+#               R, P, Y,
+#               x_dot, y_dot, z_dot,
+#               R_dot, P_dot, Y_dot,
+#               x_dot_dot, y_dot_dot, z_dot_dot]
 
 odom0_queue_size: 10
 odom0_nodelay: true
 
 odom0_differential: false
-odom0_relative: false
+odom0_relative: true
 
 ##########################################
 # BNO055 IMU #############################

@@ -14,6 +14,7 @@ from tf.transformations import quaternion_from_euler #euler_from_quaternion,
 # from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseWithCovarianceStamped, TransformStamped, Quaternion, PoseStamped #Point, 
 from aruco_msgs.msg import Marker, MarkerArray
+from svea_msgs.msg import Aruco, ArucoArray
 
 ###################################################################
 ###Estimate the pose of SVEA bsaed on the ArUco marker detection###
@@ -26,11 +27,11 @@ class aruco_pose:
         rospy.init_node('aruco_pose')
 
         # Get parameters from launch file
-        self.aruco_pose_topic = rospy.get_param("~aruco_pose_topic", "/aruco/pose")
+        self.aruco_pose_topic = rospy.get_param("~aruco_pose_topic", "/aruco/detection")
         self.aruco_id = rospy.get_param("~aruco_id", 0)
 
         # Subscriber
-        rospy.Subscriber(self.aruco_pose_topic, MarkerArray, self.aruco_callback, queue_size=1)
+        rospy.Subscriber(self.aruco_pose_topic, ArucoArray, self.aruco_callback, queue_size=1)
         
         # Publisher
         self.pose_pub = rospy.Publisher("static/pose", PoseWithCovarianceStamped, queue_size=1) #publish to pose0 in ekf
@@ -52,11 +53,11 @@ class aruco_pose:
     def run(self):
         rospy.spin()
 
-    def aruco_callback(self, msg):    
-        for marker in msg.markers:
-            if marker.id == self.aruco_id:
-                if (marker.pose.pose.position.x**2 + marker.pose.pose.position.y**2 + marker.pose.pose.position.z**2) <= 1.5:
-                    self.transform_aruco(marker)
+    def aruco_callback(self, msg):
+        for aruco in msg.arucos:
+            if aruco.marker.id == self.aruco_id:
+                if (aruco.marker.pose.pose.position.x**2 + aruco.marker.pose.pose.position.y**2 + aruco.marker.pose.pose.position.z**2) <= 1.5:
+                    self.transform_aruco(aruco.marker)
                 
     ## Estimate the pose of SVEA based on the ArUco marker detection
     ## Assume the ArUco marker and the Map frame coincide
@@ -75,8 +76,8 @@ class aruco_pose:
             adjust_orientation = TransformStamped()
             adjust_orientation.header = marker.header
             adjust_orientation.header.frame_id = "map"
-            adjust_orientation.child_frame_id = 'aruco0'
-            adjust_orientation.transform.rotation = Quaternion(*quaternion_from_euler(1.57, 0, 1.57))
+            adjust_orientation.child_frame_id = self.frame
+            adjust_orientation.transform.rotation = Quaternion(*quaternion_from_euler(0,0,0))
 
             # Adjust the orientation of the ArUco marker since it is not different from the map frame
             position = tf2_geometry_msgs.do_transform_pose(pose_aruco_baselink, adjust_orientation) 
@@ -84,7 +85,6 @@ class aruco_pose:
             #frame_id = map child_frame: baselink
             position_final = tf2_geometry_msgs.do_transform_pose(position, transform_aruco_map) 
             position_final.pose.position.z = 0.0
-
             self.publish_pose(position_final.pose.position, position_final.pose.orientation, marker.header.stamp)
 
             # To check if the transformation is correct

@@ -48,7 +48,7 @@ class aruco_detect:
         self.pub_aruco_marker = rospy.Publisher('/aruco/marker', VM, queue_size=5)
         self.pub_aruco_marker_coordinate = rospy.Publisher('/aruco/detection', ArucoArray, queue_size=5)
 
-        rospy.loginfo(self.PUB_ARUCO_POSE)
+        # rospy.loginfo(self.PUB_ARUCO_POSE)
 
         ## Subscribers
 

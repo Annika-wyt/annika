@@ -34,7 +34,8 @@ class aruco_pose:
         rospy.Subscriber(self.aruco_pose_topic, ArucoArray, self.aruco_callback, queue_size=1)
         
         # Publisher
-        self.pose_pub = rospy.Publisher("static/pose", PoseWithCovarianceStamped, queue_size=1) #publish to pose0 in ekf
+        # self.pose_pub = rospy.Publisher("static/pose", PoseWithCovarianceStamped, queue_size=1) #publish to pose0 in ekf
+        self.setEKFPose = rospy.Publisher("/set_pose", PoseWithCovarianceStamped, queue_size=1) 
         
         # Variable
         self.gps_msg = None
@@ -85,15 +86,24 @@ class aruco_pose:
             #frame_id = map child_frame: baselink
             position_final = tf2_geometry_msgs.do_transform_pose(position, transform_aruco_map) 
             position_final.pose.position.z = 0.0
+
             self.publish_pose(position_final.pose.position, position_final.pose.orientation, marker.header.stamp)
 
-            # To check if the transformation is correct
-            self.broadcast_aruco(position_final.pose.position, position_final.pose.orientation, marker.header.stamp)
+            # Publish the transformation
+            self.broadcast_pose(position_final.pose.position, position_final.pose.orientation, marker.header.stamp)
 
             # rospy.loginfo("Received ARUCO")
         except Exception as e:
             rospy.logerr(e)
 
+    def broadcast_pose(self, translation, quaternion, time):
+        msg = TransformStamped()
+        msg.header.stamp = time
+        msg.header.frame_id = "map"
+        msg.child_frame_id = "base_link"
+        msg.transform.translation = translation
+        msg.transform.rotation = quaternion
+        self.br.sendTransform(msg)
 
     def publish_pose(self, translation, quaternion, time):
         msg = PoseWithCovarianceStamped()
@@ -108,16 +118,7 @@ class aruco_pose:
                            0.0, 0.0, 0.0, 0.0, self.ang_cov, 0.0,
                            0.0, 0.0, 0.0, 0.0, 0.0, self.ang_cov]
         msg.pose.covariance = self.cov_matrix
-        self.pose_pub.publish(msg)
-
-    def broadcast_aruco(self, translation, quaternion, time):
-        msg = TransformStamped()
-        msg.header.stamp = time
-        msg.header.frame_id = "map"
-        msg.child_frame_id = "base_link"
-        msg.transform.translation = translation
-        msg.transform.rotation = quaternion
-        self.br.sendTransform(msg)
+        self.setEKFPose.publish(msg)
 
 if __name__ == '__main__':
     aruco_pose().run()

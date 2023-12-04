@@ -102,8 +102,17 @@ class perspective_3_point:
         msg.child_frame_id = "base_link"
         msg.pose.pose.position = Point(*translation[:3,-1])
         msg.pose.pose.orientation = Quaternion(*rotation)
-        # msg.pose.covariance = ##something meaningful???
+        # msg.pose.covariance = self.FillCovaraince()
+        msg.pose.covariance = [0.5, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.5, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.5, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.5, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.5, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.5]
         self.PosePub.publish(msg)
+    
+    def FillCovaraince(self):
+        pass
 
 if __name__ == '__main__':
     perspective_3_point().run()

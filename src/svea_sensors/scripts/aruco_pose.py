@@ -66,7 +66,7 @@ class aruco_pose:
     ## Estimate the pose of SVEA based on the ArUco marker detection
     ## Assume the ArUco marker and the Map frame coincide
     def transform_aruco(self, marker):
-        # try:
+        try:
             # frame_id: map, child_frame_id: aruco
             transform_aruco_map = self.buffer.lookup_transform("map", 'aruco0', rospy.Time.now(), rospy.Duration(0.5)) 
             # frame_id: aruco , child_frame_id: base_link
@@ -98,28 +98,25 @@ class aruco_pose:
                 self.UpdatePoseList = []
                 positions = np.array([pose for pose in Templist[:,0]])
                 orientations = np.array([pose for pose in Templist[:,1]])
-                print("org", positions)
                 # Calculate z-scores for positions and orientations
-                z_scores_position = np.abs((positions - np.mean(positions, axis=0)) / np.std(positions, axis=0))
-                z_scores_orientation = np.abs((orientations - np.mean(orientations, axis=0)) / np.std(orientations, axis=0))
-                print("pos z", z_scores_position)
+                z_scores_position = np.abs((positions - np.mean(positions, axis=0)) / (np.std(positions, axis=0)+1e-9))
+                z_scores_orientation = np.abs((orientations - np.mean(orientations, axis=0)) / (np.std(orientations, axis=0)+1e-9))
                 # Define a threshold for z-score (e.g., 3 standard deviations)
                 threshold = 3
-
                 # Filter out positions and orientations based on the threshold
                 filtered_positions = positions[np.all(z_scores_position < threshold, axis=1)]
                 filtered_orientations = orientations[np.all(z_scores_orientation < threshold, axis=1)]
-                print("filtered pos", filtered_positions)
                 # Calculate the average of the filtered data
                 average_position = np.mean(filtered_positions, axis=0)
                 average_orientation = np.mean(filtered_orientations, axis=0)
-                print("average_position", average_position)
-                # print(average_orientation)
-                # self.publish_pose(Point(*average_position), Quaternion(*average_orientation), marker.header.stamp)
-                # self.broadcast_pose(Point(*average_position), Quaternion(*average_orientation), marker.header.stamp)
 
-        # except Exception as e:
-            # rospy.logerr(e)
+                # TODO: marker stamp is werid
+                self.publish_pose(Point(*average_position), Quaternion(*average_orientation), marker.header.stamp)
+                # self.broadcast_pose(Point(*average_position), Quaternion(*average_orientation), marker.header.stamp)
+                self.broadcast_pose(Point(*average_position), position_final.pose.orientation, marker.header.stamp)
+
+        except Exception as e:
+            rospy.logerr(e)
 
     def broadcast_pose(self, translation, quaternion, time):
         msg = TransformStamped()

@@ -10,9 +10,11 @@ import tf2_geometry_msgs
 # from tf import transformations 
 from tf.transformations import quaternion_from_euler #euler_from_quaternion, 
 
+import numpy as np
+from copy import deepcopy
 # from tf2_msgs.msg import TFMessage
 # from sensor_msgs.msg import NavSatFix
-from geometry_msgs.msg import PoseWithCovarianceStamped, TransformStamped, Quaternion, PoseStamped #Point, 
+from geometry_msgs.msg import PoseWithCovarianceStamped, TransformStamped, Quaternion, PoseStamped, Point 
 from aruco_msgs.msg import Marker, MarkerArray
 from svea_msgs.msg import Aruco, ArucoArray
 
@@ -41,6 +43,7 @@ class aruco_pose:
         self.gps_msg = None
         self.location = None
         self.frame = 'arucoCamera' + str(self.aruco_id)
+        self.UpdatePoseList = []
 
         # Transformation
         self.buffer = tf2_ros.Buffer(rospy.Duration(10))
@@ -63,7 +66,7 @@ class aruco_pose:
     ## Estimate the pose of SVEA based on the ArUco marker detection
     ## Assume the ArUco marker and the Map frame coincide
     def transform_aruco(self, marker):
-        try:
+        # try:
             # frame_id: map, child_frame_id: aruco
             transform_aruco_map = self.buffer.lookup_transform("map", 'aruco0', rospy.Time.now(), rospy.Duration(0.5)) 
             # frame_id: aruco , child_frame_id: base_link
@@ -86,14 +89,37 @@ class aruco_pose:
             #frame_id = map child_frame: baselink
             position_final = tf2_geometry_msgs.do_transform_pose(position, transform_aruco_map) 
             position_final.pose.position.z = 0.0
-
-            self.publish_pose(position_final.pose.position, position_final.pose.orientation, marker.header.stamp)
-
+            FinalPose = list([position_final.pose.position.x, position_final.pose.position.y, position_final.pose.position.z])
+            FinalOrientation = list([position_final.pose.orientation.x, position_final.pose.orientation.y, position_final.pose.orientation.z, position_final.pose.orientation.w])
+            self.UpdatePoseList.append([FinalPose, FinalOrientation, marker.header.stamp])
             # Publish the transformation
-            self.broadcast_pose(position_final.pose.position, position_final.pose.orientation, marker.header.stamp)
+            if len(self.UpdatePoseList) == 10:
+                Templist = np.array(deepcopy(self.UpdatePoseList))
+                self.UpdatePoseList = []
+                positions = np.array([pose for pose in Templist[:,0]])
+                orientations = np.array([pose for pose in Templist[:,1]])
+                print("org", positions)
+                # Calculate z-scores for positions and orientations
+                z_scores_position = np.abs((positions - np.mean(positions, axis=0)) / np.std(positions, axis=0))
+                z_scores_orientation = np.abs((orientations - np.mean(orientations, axis=0)) / np.std(orientations, axis=0))
+                print("pos z", z_scores_position)
+                # Define a threshold for z-score (e.g., 3 standard deviations)
+                threshold = 3
 
-        except Exception as e:
-            rospy.logerr(e)
+                # Filter out positions and orientations based on the threshold
+                filtered_positions = positions[np.all(z_scores_position < threshold, axis=1)]
+                filtered_orientations = orientations[np.all(z_scores_orientation < threshold, axis=1)]
+                print("filtered pos", filtered_positions)
+                # Calculate the average of the filtered data
+                average_position = np.mean(filtered_positions, axis=0)
+                average_orientation = np.mean(filtered_orientations, axis=0)
+                print("average_position", average_position)
+                # print(average_orientation)
+                # self.publish_pose(Point(*average_position), Quaternion(*average_orientation), marker.header.stamp)
+                # self.broadcast_pose(Point(*average_position), Quaternion(*average_orientation), marker.header.stamp)
+
+        # except Exception as e:
+            # rospy.logerr(e)
 
     def broadcast_pose(self, translation, quaternion, time):
         msg = TransformStamped()

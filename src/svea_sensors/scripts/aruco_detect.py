@@ -92,52 +92,89 @@ class aruco_detect:
             translation = tf_conversions.transformations.translation_from_matrix(mtx)
             rotation = tf_conversions.transformations.quaternion_from_matrix(mtx)
 
-            try: 
+            if aruco_id != 0:
+                try: 
+                    ## Broadcast
+                    arucoPose = PoseStamped()
+                    arucoPose.header = image.header
+                    arucoPose.pose.position = Point(*translation)
+                    arucoPose.pose.orientation = Quaternion(*rotation)
+
+                    transform_aruco_map = self.buffer.lookup_transform("map", 'camera', image.header.stamp, rospy.Duration(0.5)) 
+                    position = tf2_geometry_msgs.do_transform_pose(arucoPose, transform_aruco_map) 
+                    # print(position)
+
+                    t = TransformStamped()
+                    t.header = position.header
+                    t.child_frame_id = self.ARUCO_TF_NAME + str(aruco_id[0])
+                    t.transform.translation = position.pose.position
+                    t.transform.rotation = position.pose.orientation
+                    self.br.sendTransform(t)
+
+                    #get the 2D image coordinate of the aruco marker
+                    aruco_msg = Aruco()
+                    markerCorners = aruco_corner[0]
+
+                    # aruco_msg.header = image.header
+                    aruco_msg.image_x, aruco_msg.image_y = np.mean(markerCorners, axis=0)
+
+                    ## Publish  
+                    marker = Marker()
+                    marker.header = position.header
+                    marker.id = int(aruco_id)
+                    marker.pose.pose.position = position.pose.position
+                    marker.pose.pose.orientation = position.pose.orientation
+                    marker.confidence = 1 # NOTE: Set this to something more relevant?
+                    aruco_msg.marker = marker
+                    
+                    Vmarker = VM()
+                    Vmarker.header = position.header
+                    Vmarker.id = int(aruco_id)
+                    Vmarker.pose.position = position.pose.position
+                    Vmarker.pose.orientation = position.pose.orientation
+                    Vmarker.scale = Vector3(*[0.1, 0.1, 0.1])
+                    Vmarker.color = ColorRGBA(*[0, 1, 0, 1])
+                    markerArray.markers.append(marker)
+                    CoorArray.arucos.append(aruco_msg)
+                    self.pub_aruco_marker.publish(Vmarker)
+                except Exception as e:
+                    rospy.logerr(f"{e}")
+            else:
                 ## Broadcast
-                arucoPose = PoseStamped()
-                arucoPose.header = image.header
-                arucoPose.pose.position = Point(*translation)
-                arucoPose.pose.orientation = Quaternion(*rotation)
-
-                transform_aruco_map = self.buffer.lookup_transform("map", 'camera', image.header.stamp, rospy.Duration(0.5)) 
-                position = tf2_geometry_msgs.do_transform_pose(arucoPose, transform_aruco_map) 
-                # print(position)
-
                 t = TransformStamped()
-                t.header = position.header
+                t.header = image.header
                 t.child_frame_id = self.ARUCO_TF_NAME + str(aruco_id[0])
-                t.transform.translation = position.pose.position
-                t.transform.rotation = position.pose.orientation
+                t.transform.translation = Point(*translation)
+                t.transform.rotation = Quaternion(*rotation)
+
                 self.br.sendTransform(t)
 
-                #get the 2D image coordinate of the aruco marker
+                ##get the 2D image coordinate of the aruco marker
                 aruco_msg = Aruco()
                 markerCorners = aruco_corner[0]
 
                 # aruco_msg.header = image.header
                 aruco_msg.image_x, aruco_msg.image_y = np.mean(markerCorners, axis=0)
-
-                ## Publish  
+                
+                ## Publish
                 marker = Marker()
-                marker.header = position.header
+                marker.header = image.header
                 marker.id = int(aruco_id)
-                marker.pose.pose.position = position.pose.position
-                marker.pose.pose.orientation = position.pose.orientation
+                marker.pose.pose.position = Point(*translation)
+                marker.pose.pose.orientation = Quaternion(*rotation)
                 marker.confidence = 1 # NOTE: Set this to something more relevant?
                 aruco_msg.marker = marker
                 
                 Vmarker = VM()
-                Vmarker.header = position.header
+                Vmarker.header = image.header
                 Vmarker.id = int(aruco_id)
-                Vmarker.pose.position = position.pose.position
-                Vmarker.pose.orientation = position.pose.orientation
+                Vmarker.pose.position = Point(*translation)
+                Vmarker.pose.orientation = Quaternion(*rotation)
                 Vmarker.scale = Vector3(*[0.1, 0.1, 0.1])
                 Vmarker.color = ColorRGBA(*[0, 1, 0, 1])
                 markerArray.markers.append(marker)
                 CoorArray.arucos.append(aruco_msg)
                 self.pub_aruco_marker.publish(Vmarker)
-            except Exception as e:
-                rospy.logerr(f"{e}")
 
         self.pub_aruco_marker_coordinate.publish(CoorArray)
 

@@ -111,7 +111,7 @@
         <node pkg="tf2_ros" type="static_transform_publisher" name="imulink_broadcaster"    args="0 0 0.1 0 0 0 base_link imu" />
         <node pkg="tf2_ros" type="static_transform_publisher" name="gpslink_broadcaster"    args="-0.058 -0.015  0.115 0 0 0 base_link gps" />
         <node pkg="tf2_ros" type="static_transform_publisher" name="cameralink_broadcaster"    args="0.383 0.0 0.255 -1.57 0 -1.57 base_link camera" />  <!-- for e-com-4k -->
-        <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco_broadcaster"  args="0 0 0 0 0 0 map aruco0_actual" />
+        <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco_broadcaster"  args="0 0 0 0 0 0 map aruco0" />
 
         <group if="$(arg is_indoors)">
             <node pkg="tf2_ros" type="static_transform_publisher" name="lidarlink_broadcaster"  args="0.284 0 0.2 0 0 0 1 base_link laser" />
@@ -191,6 +191,6 @@
     </node>
     
     <!-- Perspective-3-point algorithm -->
-    <node name="perspective_3_point" pkg="svea_sensors" type="perspective_3_point.py" output="screen"/>
+    <!-- <node name="perspective_3_point" pkg="svea_sensors" type="perspective_3_point.py" output="screen"/> -->
 
 </launch>

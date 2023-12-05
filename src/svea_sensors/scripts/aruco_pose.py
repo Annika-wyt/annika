@@ -40,7 +40,7 @@ class aruco_pose:
         # Variable
         self.gps_msg = None
         self.location = None
-        self.frame = 'aruco' + str(self.aruco_id)
+        self.frame = 'arucoCamera' + str(self.aruco_id)
 
         # Transformation
         self.buffer = tf2_ros.Buffer(rospy.Duration(10))
@@ -65,7 +65,7 @@ class aruco_pose:
     def transform_aruco(self, marker):
         try:
             # frame_id: map, child_frame_id: aruco
-            transform_aruco_map = self.buffer.lookup_transform("map", 'aruco0_actual', rospy.Time.now(), rospy.Duration(0.5)) 
+            transform_aruco_map = self.buffer.lookup_transform("map", 'aruco0', rospy.Time.now(), rospy.Duration(0.5)) 
             # frame_id: aruco , child_frame_id: base_link
             transform_baselink_aruco = self.buffer.lookup_transform(self.frame, "base_link", marker.header.stamp, rospy.Duration(0.5)) 
 
@@ -92,7 +92,6 @@ class aruco_pose:
             # Publish the transformation
             self.broadcast_pose(position_final.pose.position, position_final.pose.orientation, marker.header.stamp)
 
-            # rospy.loginfo("Received ARUCO")
         except Exception as e:
             rospy.logerr(e)
 
@@ -119,6 +118,8 @@ class aruco_pose:
                            0.0, 0.0, 0.0, 0.0, 0.0, self.ang_cov]
         msg.pose.covariance = self.cov_matrix
         self.setEKFPose.publish(msg)
+        rospy.logdebug(f"publish pose")
+        
 
 if __name__ == '__main__':
     aruco_pose().run()

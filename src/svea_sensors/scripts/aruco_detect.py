@@ -92,7 +92,7 @@ class aruco_detect:
             translation = tf_conversions.transformations.translation_from_matrix(mtx)
             rotation = tf_conversions.transformations.quaternion_from_matrix(mtx)
 
-            if aruco_id != 0:
+            if False:
                 try: 
                     ## Broadcast
                     arucoPose = PoseStamped()

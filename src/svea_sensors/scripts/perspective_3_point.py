@@ -9,7 +9,7 @@ from svea_msgs.msg import Aruco, ArucoArray
 from sensor_msgs.msg import CameraInfo
 from tf2_msgs.msg import TFMessage
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Point, Quaternion
+from geometry_msgs.msg import Point, Quaternion, TransformStamped
 
 import numpy as np
 import cv2
@@ -91,7 +91,7 @@ class perspective_3_point:
         # rospy.loginfo(f"\n ==================================== \n {success}, \n {rotation}, \n {translation} \n ====================================")
         if success:
             self.publish_pose(rotation, translation, header)
-
+    
     def publish_pose(self, rotationVec, translationVec, header):
         translation = tf_trans.translation_matrix(translationVec.reshape((3,)))
         translation[:3,:3] = cv2.Rodrigues(rotationVec)[0]
@@ -110,6 +110,13 @@ class perspective_3_point:
                                0.0, 0.0, 0.0, 0.0, 0.5, 0.0,
                                0.0, 0.0, 0.0, 0.0, 0.0, 0.5]
         self.PosePub.publish(msg)
+        msg2 = TransformStamped()
+        msg2.header.stamp = header.stamp
+        msg2.header.frame_id = "map"
+        msg2.child_frame_id = "base_link"
+        msg2.transform.translation = Point(*translation[:3,-1])
+        msg2.transform.rotation = Quaternion(*rotation)
+        self.br.sendTransform(msg2)
     
     def FillCovaraince(self):
         pass

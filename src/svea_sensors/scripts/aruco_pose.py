@@ -125,7 +125,7 @@ class aruco_pose:
         msg.child_frame_id = "base_link"
         msg.transform.translation = translation
         msg.transform.rotation = quaternion
-        # self.br.sendTransform(msg)
+        self.br.sendTransform(msg)
 
     def publish_pose(self, translation, quaternion, time):
         msg = PoseWithCovarianceStamped()

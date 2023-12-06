@@ -92,7 +92,8 @@ class aruco_detect:
             translation = tf_conversions.transformations.translation_from_matrix(mtx)
             rotation = tf_conversions.transformations.quaternion_from_matrix(mtx)
 
-            if False:
+            # if False:
+            if aruco_id != 0:
                 try: 
                     ## Broadcast
                     arucoPose = PoseStamped()
@@ -100,7 +101,7 @@ class aruco_detect:
                     arucoPose.pose.position = Point(*translation)
                     arucoPose.pose.orientation = Quaternion(*rotation)
 
-                    transform_aruco_map = self.buffer.lookup_transform("map", 'camera', image.header.stamp, rospy.Duration(0.5)) 
+                    transform_aruco_map = self.buffer.lookup_transform("map", 'camera', image.header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
                     position = tf2_geometry_msgs.do_transform_pose(arucoPose, transform_aruco_map) 
                     # print(position)
 
@@ -138,7 +139,8 @@ class aruco_detect:
                     CoorArray.arucos.append(aruco_msg)
                     self.pub_aruco_marker.publish(Vmarker)
                 except Exception as e:
-                    rospy.logerr(f"{e}")
+                    pass
+                    # rospy.logerr(f"{e}")
             else:
                 ## Broadcast
                 t = TransformStamped()

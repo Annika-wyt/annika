@@ -8,14 +8,38 @@
     <arg name="aruco_tf_name"           default="arucoCamera"/>
 
     <!-- Nodes -->
-    <!-- <node if="$(eval map != '')" pkg="map_server" type="map_server" name="map_server" output="screen" args="/svea_ws/src/svea_core/maps/sml.yaml"/> -->
+    <node if="$(eval map != '')" pkg="map_server" type="map_server" name="map_server" output="screen" args="/svea_ws/src/svea_core/maps/sml.yaml"/>
 
-    <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="odommap_broadcaster"    args="0 0 0 0 0 0 map odom" />    -->
-    <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="linkodom_broadcaster"    args="0 0 0 0 0 0 odom base_link" />    -->
-    <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="imulink_broadcaster"    args="0 0 0.1 0 0 0 base_link imu" /> -->
-    <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="gpslink_broadcaster"    args="-0.058 -0.015  0.115 0 0 0 base_link gps" /> -->
-    <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="cameralink_broadcaster"    args="0.383 0.0 0.255 -1.57 0 -1.57 base_link camera" />  for e-com-4k -->
-    <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco_broadcaster"  args="0 0 0 0 0 0 map aruco0" /> -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="odommap_broadcaster"    args="0 0 0 0 0 0 map odom" />   
+    <node pkg="tf2_ros" type="static_transform_publisher" name="linkodom_broadcaster"    args="0 0 0 0 0 0 odom base_link" />   
+    <node pkg="tf2_ros" type="static_transform_publisher" name="imulink_broadcaster"    args="0 0 0.1 0 0 0 base_link imu" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="gpslink_broadcaster"    args="-0.058 -0.015  0.115 0 0 0 base_link gps" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco_broadcaster"  args="0 0 0 0 0 0 map aruco0" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="cameralink_broadcaster"    args="0.383 0.0 0.255 -1.57 0 -1.57 base_link camera" />
+      <!-- for e-com-4k -->
+
+    <!-- Robot localization (initial estimation EKF)-->
+    <node pkg="robot_localization" type="ekf_localization_node" name="ekf_estimation" clear_params="true" output="screen">
+        <rosparam command="load" file="$(find svea_sensors)/params/robot_localization/estimation_ekf.yaml" />
+        <!-- initial_state: [x,          y,          z, 
+                             roll,       pitch,      yaw, 
+                             x_dot,      y_dot,      z_dot, 
+                             roll_dot,   pitch_dot,  yaw_dot, 
+                             x_dot_dot,  y_dot_dot,  z_dot_dot]-->
+        <rosparam subst_value="true">
+        initial_state: [0.0, 0.0, 0.0, 
+                        0.0, 0.0, 0.0, 
+                        0.0, 0.0, 0.0, 
+                        0.0, 0.0, 0.0, 
+                        0.0, 0.0, 0.0]
+        </rosparam>
+        <param name="publish_tf"            value="false"/>
+        <param name="odom0"                 value="rs/t265_camera/odom/sample"/>
+        <param name="imu0"                  value="imu/data"/>
+        <param name="twist0"                value="actuation_twist"/>
+        <param name="twist1"                value="wheel_encoder_twist"/>
+        <remap from="/odometry/filtered"    to="/ekf_estimation/odometry/filtered/"/>
+    </node>
 
     <node name="aruco_detect" pkg="svea_sensors" type="aruco_detect.py" output="screen">
         <param name="sub_image"         value="$(arg camera_image_topic)"/>
@@ -25,7 +49,7 @@
         <param name="aruco_tf_name"     value="$(arg aruco_tf_name)"/>
     </node>
 
-    <!-- <node name="aruco_pose" pkg="svea_sensors" type="aruco_pose.py" output="screen"/> -->
-    <!-- <node name="perspective_3_point" pkg="svea_sensors" type="perspective_3_point.py" output="screen"/> -->
+    <node name="aruco_pose" pkg="svea_sensors" type="aruco_pose.py" output="screen"/>
+    <node name="perspective_3_point" pkg="svea_sensors" type="perspective_3_point.py" output="screen"/>
 
 </launch>

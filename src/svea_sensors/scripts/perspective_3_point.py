@@ -9,7 +9,8 @@ from svea_msgs.msg import Aruco, ArucoArray
 from sensor_msgs.msg import CameraInfo
 from tf2_msgs.msg import TFMessage
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Point, Quaternion, TransformStamped
+from geometry_msgs.msg import Point, Quaternion, TransformStamped, PoseStamped
+import tf2_geometry_msgs
 
 import numpy as np
 import cv2
@@ -54,10 +55,19 @@ class perspective_3_point:
 
     def InitialGuessCameraPoseCallback(self, msg):
         # if self.DECODEARUCO:
+        try:
+            OdomMapTrans = self.buffer.lookup_transform("map", 'odom', rospy.Time.now(), rospy.Duration(0.5)) #msg.header.stamp
+            poseEKF = PoseStamped()
+            poseEKF.header = msg.header
+            poseEKF.pose.position = msg.pose.pose.position
+            poseEKF.pose.orientation = msg.pose.pose.orientation
+            position = tf2_geometry_msgs.do_transform_pose(poseEKF, OdomMapTrans) 
+        except:
+            pass
         if len(self.estimatedTranslation) == 0:
-            self.estimatedTranslation = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z], dtype=np.float32)
+            self.estimatedTranslation = np.array([position.pose.position.x, position.pose.position.y, position.pose.position.z], dtype=np.float32)
         if len(self.estimatedRotation) == 0:
-            self.estimatedRotation, _ = cv2.Rodrigues(tf_trans.quaternion_matrix([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w]))
+            self.estimatedRotation, _ = cv2.Rodrigues(tf_trans.quaternion_matrix([position.pose.orientation.x, position.pose.orientation.y, position.pose.orientation.z, position.pose.orientation.w]))
             self.estimatedRotation = self.estimatedRotation.T[0]
             
     def ArucoDetectionCallback(self, msg):
@@ -79,15 +89,23 @@ class perspective_3_point:
         self.cameraK = np.array(msg.K, dtype=np.float64).reshape((3,3))
     
     def estimation(self, aruco2D, aruco3D, header, estimatedRotation, estimatedTranslation):
+        print("HEYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY")
         success, rotation, translation = None, None, None
         if len(estimatedTranslation) == 0 or len(estimatedRotation) == 0:
             # self.DECODEARUCO = False
             if len(self.arucoId) >= 4:
-                success, rotation, translation = cv2.solvePnP(aruco3D, aruco2D, self.cameraK, self.cameraD, flags=cv2.SOLVEPNP_P3P)
+                try:
+                    success, rotation, translation = cv2.solvePnP(aruco3D, aruco2D, self.cameraK, self.cameraD, flags=cv2.SOLVEPNP_P3P)
+                except Exception as e:
+                    rospy.logerr(f"CANNOT SOLVE PNP (more than 4 landmarks) \n {e}")
             else:
                 rospy.logerr(f"cannot find estimated Translation or Rotation and less than 4 landmarks")
         else:
-            success, rotation, translation = cv2.solvePnP(aruco3D, aruco2D, self.cameraK, self.cameraD, rvec=estimatedRotation, tvec=estimatedTranslation, flags=cv2.SOLVEPNP_P3P)
+            try:
+                success, rotation, translation = cv2.solvePnP(aruco3D, aruco2D, self.cameraK, self.cameraD, rvec=estimatedRotation, tvec=estimatedTranslation, flags=cv2.SOLVEPNP_P3P)
+            except Exception as e:
+                rospy.logerr(f"CANNOT SOLVE PNP \n {e}")
+
         # rospy.loginfo(f"\n ==================================== \n {success}, \n {rotation}, \n {translation} \n ====================================")
         if success:
             self.publish_pose(rotation, translation, header)
@@ -100,6 +118,7 @@ class perspective_3_point:
         msg.header = header
         msg.header.frame_id = "map"
         msg.child_frame_id = "base_link"
+        # msg.child_frame_id = "camera"
         msg.pose.pose.position = Point(*translation[:3,-1])
         msg.pose.pose.orientation = Quaternion(*rotation)
         # msg.pose.covariance = self.FillCovaraince()
@@ -116,6 +135,7 @@ class perspective_3_point:
         msg2.child_frame_id = "base_link"
         msg2.transform.translation = Point(*translation[:3,-1])
         msg2.transform.rotation = Quaternion(*rotation)
+        rospy.loginfo("SENDING NEW POSE ODOM BASELINK FROM P3P")
         self.br.sendTransform(msg2)
     
     def FillCovaraince(self):

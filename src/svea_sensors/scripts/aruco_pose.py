@@ -44,6 +44,8 @@ class aruco_pose:
         self.location = None
         self.frame = 'arucoCamera' + str(self.aruco_id)
         self.UpdatePoseList = []
+        self.average_position = [0,0,0]
+        self.average_orientation = [0,0,0,1]
 
         # Transformation
         self.buffer = tf2_ros.Buffer(rospy.Duration(10))
@@ -54,6 +56,10 @@ class aruco_pose:
         self.lin_cov = 1e-6
         self.ang_cov = 1e-6
 
+        while not rospy.is_shutdown():
+            self.broadcast_pose()
+            rospy.sleep(1)
+
     def run(self):
         rospy.spin()
 
@@ -61,6 +67,7 @@ class aruco_pose:
         for aruco in msg.arucos:
             if aruco.marker.id == self.aruco_id:
                 if (aruco.marker.pose.pose.position.x**2 + aruco.marker.pose.pose.position.y**2 + aruco.marker.pose.pose.position.z**2) <= 1.5:
+                    print(aruco.marker.id)
                     self.transform_aruco(aruco.marker)
                 
     ## Estimate the pose of SVEA based on the ArUco marker detection
@@ -68,9 +75,10 @@ class aruco_pose:
     def transform_aruco(self, marker):
         try:
             # frame_id: map, child_frame_id: aruco
-            transform_aruco_map = self.buffer.lookup_transform("map", 'aruco0', rospy.Time.now(), rospy.Duration(0.5)) 
+            transform_aruco_map = self.buffer.lookup_transform("map", 'aruco0', marker.header.stamp, rospy.Duration(0.5)) 
             # frame_id: aruco , child_frame_id: base_link
             transform_baselink_aruco = self.buffer.lookup_transform(self.frame, "base_link", marker.header.stamp, rospy.Duration(0.5)) 
+            # transform_baselink_aruco = self.buffer.lookup_transform(self.frame, "base_link", marker.header.stamp, rospy.Duration(0.5)) 
 
             pose_aruco_baselink = PoseStamped()
             pose_aruco_baselink.header = transform_baselink_aruco.header
@@ -81,7 +89,7 @@ class aruco_pose:
             adjust_orientation.header = marker.header
             adjust_orientation.header.frame_id = "map"
             adjust_orientation.child_frame_id = self.frame
-            adjust_orientation.transform.rotation = Quaternion(*quaternion_from_euler(0,0,0))
+            adjust_orientation.transform.rotation = Quaternion(*[0,0,0,1])
 
             # Adjust the orientation of the ArUco marker since it is not different from the map frame
             position = tf2_geometry_msgs.do_transform_pose(pose_aruco_baselink, adjust_orientation) 
@@ -107,25 +115,34 @@ class aruco_pose:
                 filtered_positions = positions[np.all(z_scores_position < threshold, axis=1)]
                 filtered_orientations = orientations[np.all(z_scores_orientation < threshold, axis=1)]
                 # Calculate the average of the filtered data
-                average_position = np.mean(filtered_positions, axis=0)
-                average_orientation = np.mean(filtered_orientations, axis=0)
+                self.average_position = np.mean(filtered_positions, axis=0)
+                self.average_orientation = np.mean(filtered_orientations, axis=0)
 
                 # TODO: marker stamp is werid
-                self.publish_pose(Point(*average_position), Quaternion(*average_orientation), marker.header.stamp)
-                # self.broadcast_pose(Point(*average_position), Quaternion(*average_orientation), marker.header.stamp)
-                self.broadcast_pose(Point(*average_position), position_final.pose.orientation, marker.header.stamp)
-
+                self.publish_pose(Point(*self.average_position), Quaternion(*self.average_orientation), marker.header.stamp)
+                self.broadcast_pose(Point(*self.average_position), Quaternion(*self.average_orientation), marker.header.stamp)
+                # self.broadcast_pose(Point(*self.average_position), position_final.pose.orientation, marker.header.stamp)
         except Exception as e:
             rospy.logerr(e)
 
-    def broadcast_pose(self, translation, quaternion, time):
+    def broadcast_pose(self, translation=None, quaternion=None, time=None):
         msg = TransformStamped()
-        msg.header.stamp = time
         msg.header.frame_id = "map"
+        # msg.child_frame_id = "odom" #for ekf
         msg.child_frame_id = "base_link"
-        msg.transform.translation = translation
-        msg.transform.rotation = quaternion
-        self.br.sendTransform(msg)
+        if np.all(translation != None): 
+            msg.header.stamp = time
+            msg.transform.translation = translation
+            msg.transform.rotation = quaternion
+            self.br.sendTransform(msg)
+        else:
+            try:
+                msg.header.stamp = rospy.Time.now()
+                msg.transform.translation = Point(*self.average_position)
+                msg.transform.rotation = Quaternion(*self.average_orientation)
+                self.br.sendTransform(msg)
+            except:
+                pass
 
     def publish_pose(self, translation, quaternion, time):
         msg = PoseWithCovarianceStamped()
@@ -141,7 +158,7 @@ class aruco_pose:
                            0.0, 0.0, 0.0, 0.0, 0.0, self.ang_cov]
         msg.pose.covariance = self.cov_matrix
         self.setEKFPose.publish(msg)
-        rospy.logdebug(f"publish pose")
+        rospy.loginfo(f"PUBLISH POSE FROM ARUCO_POSE")
         
 
 if __name__ == '__main__':

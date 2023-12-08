@@ -15,11 +15,11 @@ import tf2_geometry_msgs
 import numpy as np
 import cv2
 
-class perspective_3_point:
+class p3p_process_data:
 
     def __init__(self):
         # Initalize the node 
-        rospy.init_node('perspective_3_point')
+        rospy.init_node('p3p_process_data')
 
         # Get parameters from launch file
 
@@ -142,4 +142,4 @@ class perspective_3_point:
         pass
 
 if __name__ == '__main__':
-    perspective_3_point().run()
+    p3p_process_data().run()

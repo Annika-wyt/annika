@@ -84,6 +84,7 @@ class aruco_detect:
 
         markerArray = MarkerArray()
         CoorArray = ArucoArray()
+        CoorArray.header = image.header
         for aruco_id, aruco_corner, rvec, tvec in zip(ids, corners, rvecs, tvecs):
             mtx = np.zeros((4, 4))
             mtx[:3, :3] = cv2.Rodrigues(rvec)[0]

@@ -67,7 +67,6 @@ class aruco_pose:
         for aruco in msg.arucos:
             if aruco.marker.id == self.aruco_id:
                 if (aruco.marker.pose.pose.position.x**2 + aruco.marker.pose.pose.position.y**2 + aruco.marker.pose.pose.position.z**2) <= 1.5:
-                    print(aruco.marker.id)
                     self.transform_aruco(aruco.marker)
                 
     ## Estimate the pose of SVEA based on the ArUco marker detection

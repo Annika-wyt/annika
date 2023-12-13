@@ -31,6 +31,6 @@
     <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco4_broadcaster"  args="-0.05475 -0.095 0.0585 4.18879 0 1.57 map aruco4" />
     <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco5_broadcaster"  args="0.05475 -0.095 0.0585 5.23599 0 1.57 map aruco5" />
 
-    <node name="aruco_pose" pkg="svea_sensors" type="aruco_pose.py" output="screen"/>
-
+    <!-- <node name="aruco_pose" pkg="svea_sensors" type="aruco_pose.py" output="screen"/> -->
+    <node name="p3p_process_data" pkg="svea_sensors" type="p3p_process_data.py" output="screen"/>
 </launch>

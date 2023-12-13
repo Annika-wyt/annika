@@ -31,7 +31,7 @@ class aruco_detect:
         
         self.ARUCO_DICT_NAME = rospy.get_param('~aruco_dict', 'DICT_4X4_250')
         self.ARUCO_SIZE = rospy.get_param('~aruco_size', '0.365')
-        self.ARUCO_TF_NAME = rospy.get_param('~aruco_tf_name', 'aruco_measured_')
+        self.ARUCO_TF_NAME = rospy.get_param('~aruco_tf_name', 'arucoCamera')
         self.PUB_ARUCO_POSE = rospy.get_param('~pub_aruco_pose', '/aruco/pose')
 
         ## Aruco
@@ -50,7 +50,7 @@ class aruco_detect:
         # self.pub_aruco_pose = rospy.Publisher(self.PUB_ARUCO_POSE, MarkerArray, queue_size=5)
         self.pub_aruco_marker = rospy.Publisher('/aruco/marker', VM, queue_size=5)
         self.pub_aruco_marker_coordinate = rospy.Publisher('/aruco/detection', ArucoArray, queue_size=5)
-
+        self.image_pub = rospy.Publisher('/your_modified_image_topic', Image, queue_size=10)
         # rospy.loginfo(self.PUB_ARUCO_POSE)
 
         ## Subscribers
@@ -85,6 +85,7 @@ class aruco_detect:
         markerArray = MarkerArray()
         CoorArray = ArucoArray()
         CoorArray.header = image.header
+        
         for aruco_id, aruco_corner, rvec, tvec in zip(ids, corners, rvecs, tvecs):
             mtx = np.zeros((4, 4))
             mtx[:3, :3] = cv2.Rodrigues(rvec)[0]
@@ -94,17 +95,17 @@ class aruco_detect:
             rotation = tf_conversions.transformations.quaternion_from_matrix(mtx)
 
             # if False:
-            if aruco_id != 0:
+            arucoList = [0,1,2,3,4,5]
+            if aruco_id not in arucoList:
                 try: 
                     ## Broadcast
                     arucoPose = PoseStamped()
                     arucoPose.header = image.header
                     arucoPose.pose.position = Point(*translation)
                     arucoPose.pose.orientation = Quaternion(*rotation)
-
                     transform_aruco_map = self.buffer.lookup_transform("map", 'camera', image.header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
                     position = tf2_geometry_msgs.do_transform_pose(arucoPose, transform_aruco_map) 
-                    # print(position)
+                    # print("arucoPose", arucoPose)
 
                     t = TransformStamped()
                     t.header = position.header
@@ -112,6 +113,7 @@ class aruco_detect:
                     t.transform.translation = position.pose.position
                     t.transform.rotation = position.pose.orientation
                     self.br.sendTransform(t)
+                    # print("t", t)
 
                     #get the 2D image coordinate of the aruco marker
                     aruco_msg = Aruco()
@@ -119,6 +121,11 @@ class aruco_detect:
 
                     # aruco_msg.header = image.header
                     aruco_msg.image_x, aruco_msg.image_y = np.mean(markerCorners, axis=0)
+
+                    cv2.circle(gray, (int(aruco_msg.image_x), int(aruco_msg.image_y)), 50, (0,255,0), 2)
+                    
+                    self.image_pub.publish(CvBridge().cv2_to_imgmsg(gray, "passthrough"))
+
 
                     ## Publish  
                     marker = Marker()

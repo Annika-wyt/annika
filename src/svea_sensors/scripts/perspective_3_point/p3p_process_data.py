@@ -62,13 +62,12 @@ class p3p_process_data:
             self.header = aruco.marker.header
             self.arucoDict[aruco.marker.id] = {
                 'id': aruco.marker.id,
-                '2d': np.array([aruco.image_x, aruco.image_y, 1.0]),
+                '2d': np.array([aruco.image_x, aruco.image_y]),
                 '3d': np.array([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])}
 
         # Get Camera Info
         self.cameraDict['D'] = np.array(CameraMsg.D)
         self.cameraDict['K'] = np.array(CameraMsg.K)
-
         # Get Initial Guess
         # try:
         #     OdomMapTrans = self.buffer.lookup_transform("map", 'odom', PoseMsg.header.stamp, rospy.Duration(0.5))
@@ -88,8 +87,18 @@ class p3p_process_data:
         # Run P3P
         # result, success = 
         # print("going to p3p estimation")
+        
+        coor2d = np.array([value['2d'] for value in self.arucoDict.values() if '2d' in value], dtype=np.float32)
+        coor3d = np.array([value['3d'] for value in self.arucoDict.values() if '3d' in value], dtype=np.float32)
+
+        cam_matrix = np.array(self.cameraDict['K'], dtype=np.float32).reshape(3,3)
+        dis_matrix = np.array(self.cameraDict['D'], dtype=np.float32)
+        success, rotation_vector, translation_vector = cv2.solvePnP(coor3d, coor2d, cam_matrix, dis_matrix, flags=cv2.SOLVEPNP_EPNP)
+        rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
         # result = self.solvePNP.estimation(self.cameraDict, self.arucoDict, self.estimateDict)
-        # self.publish_pose(result, self.header)
+        result = np.hstack((rotation_matrix, translation_vector))
+        result = np.vstack((result, [0,0,0,1]))
+        self.publish_pose(result, self.header)
         # if success:
             # self.publish_pose(success)
 
@@ -97,7 +106,6 @@ class p3p_process_data:
         translation = result[:-1,-1]
         rotation = tf_trans.quaternion_from_matrix(result)
         rotation = rotation/np.linalg.norm(rotation)
-        print(rotation)
         msg = Odometry()
         msg.header = header
         msg.header.frame_id = "map"

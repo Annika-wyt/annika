@@ -93,45 +93,58 @@ class p3p_process_data:
 
         cam_matrix = np.array(self.cameraDict['K'], dtype=np.float32).reshape(3,3)
         dis_matrix = np.array(self.cameraDict['D'], dtype=np.float32)
-        success, rotation_vector, translation_vector = cv2.solvePnP(coor3d, coor2d, cam_matrix, dis_matrix, flags=cv2.SOLVEPNP_EPNP)
-        rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
-        # result = self.solvePNP.estimation(self.cameraDict, self.arucoDict, self.estimateDict)
-        result = np.hstack((rotation_matrix, translation_vector))
-        result = np.vstack((result, [0,0,0,1]))
-        self.publish_pose(result, self.header)
-        # if success:
-            # self.publish_pose(success)
+        if len(coor3d) >= 4:
+            success, rotation_vector, translation_vector = cv2.solvePnP(coor3d, coor2d, cam_matrix, dis_matrix, flags=cv2.SOLVEPNP_EPNP)
+            rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
+            # result = self.solvePNP.estimation(self.cameraDict, self.arucoDict, self.estimateDict)
+            result = np.hstack((rotation_matrix, translation_vector))
+            result = np.vstack((result, [0,0,0,1]))
+            self.publish_pose(result, self.header)
+            # if success:
+                # self.publish_pose(success)
 
     def publish_pose(self, result, header):
         translation = result[:-1,-1]
         rotation = tf_trans.quaternion_from_matrix(result)
         rotation = rotation/np.linalg.norm(rotation)
+
+        temppose = PoseStamped()
+        temppose.header = header
+        temppose.pose.position = Point(*translation)
+        temppose.pose.orientation = Quaternion(*rotation)
+
+        transform_aruco_map = self.buffer.lookup_transform("base_link", 'camera', header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
+        position = tf2_geometry_msgs.do_transform_pose(temppose, transform_aruco_map) 
+
+
         msg = Odometry()
         msg.header = header
         msg.header.frame_id = "map"
-        msg.child_frame_id = "base_link"
+        msg.child_frame_id = "base_link" #should be the est of cam
         # msg.child_frame_id = "camera"
-        msg.pose.pose.position = Point(*translation)
-        msg.pose.pose.orientation = Quaternion(*rotation)
+        msg.pose.pose.position = position.pose.position #Point(*translation)
+        msg.pose.pose.orientation = position.pose.orientation #Quaternion(*rotation)
         # msg.pose.covariance = self.FillCovaraince()
-        msg.pose.covariance = [0.5, 0.0, 0.0, 0.0, 0.0, 0.0,
-                               0.0, 0.5, 0.0, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 0.5, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 0.5, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 0.5, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 0.0, 0.5]
+        msg.pose.covariance = [1e-3, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 1e-3, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 1e-3, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 1e-3, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 1e-3, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 1e-3]
         self.PosePub.publish(msg)
+
+
         msg2 = TransformStamped()
         msg2.header.stamp = header.stamp
         msg2.header.frame_id = "map"
-        msg2.child_frame_id = "base_link"
+        msg2.child_frame_id = "base_link_est" #should be the est of cam
         # msg2.transform.translation = Point(*[0,0,0])
-        msg2.transform.translation = Point(*translation)
-        msg2.transform.rotation = Quaternion(*rotation)
+        msg2.transform.translation = position.pose.position #Point(*translation)
+        msg2.transform.rotation = position.pose.orientation #Quaternion(*rotation)
         # rospy.loginfo("SENDING NEW POSE ODOM BASELINK FROM P3P")
         print("translation", translation)
         print("rotation", rotation)
-        self.br.sendTransform(msg2)
+        # self.br.sendTransform(msg2)
     
     def FillCovaraince(self):
         pass

@@ -11,10 +11,11 @@ from tf2_msgs.msg import TFMessage
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point, Quaternion, TransformStamped, PoseStamped
 import tf2_geometry_msgs
-
+import tf_conversions
 from message_filters import Subscriber, ApproximateTimeSynchronizer
 
 from p3p import p3p
+from copy import deepcopy
 
 import numpy as np
 import cv2
@@ -99,11 +100,15 @@ class p3p_process_data:
             # result = self.solvePNP.estimation(self.cameraDict, self.arucoDict, self.estimateDict)
             result = np.hstack((rotation_matrix, translation_vector))
             result = np.vstack((result, [0,0,0,1]))
-            self.publish_pose(result, self.header)
+            self.publish_pose(result, deepcopy(self.header))
             # if success:
                 # self.publish_pose(success)
 
     def publish_pose(self, result, header):
+        # inverted_transform = tf_conversions.toTransform(tf_conversions.fromMatrix(inverted_matrix))
+        # print(inverted_transform)
+
+        # this is world @ camera frame
         translation = result[:-1,-1]
         rotation = tf_trans.quaternion_from_matrix(result)
         rotation = rotation/np.linalg.norm(rotation)
@@ -113,15 +118,18 @@ class p3p_process_data:
         temppose.pose.position = Point(*translation)
         temppose.pose.orientation = Quaternion(*rotation)
 
-        transform_aruco_map = self.buffer.lookup_transform("base_link", 'camera', header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
+        transform_aruco_map = self.buffer.lookup_transform("base_link", "camera", header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
         position = tf2_geometry_msgs.do_transform_pose(temppose, transform_aruco_map) 
-
+        quaternion = np.array([position.pose.orientation.x, position.pose.orientation.y, position.pose.orientation.z, position.pose.orientation.w])
+        translation = np.array([position.pose.position.x, position.pose.position.y, position.pose.position.z])
+        quaternion_inv = tf.transformations.quaternion_conjugate(quaternion)
+        rotation_matrix_inv = tf.transformations.quaternion_matrix(quaternion_inv)
+        translation_inv = -np.dot(rotation_matrix_inv[:3, :3], translation)
 
         msg = Odometry()
         msg.header = header
         msg.header.frame_id = "map"
-        msg.child_frame_id = "base_link" #should be the est of cam
-        # msg.child_frame_id = "camera"
+        msg.child_frame_id = "base_link" 
         msg.pose.pose.position = position.pose.position #Point(*translation)
         msg.pose.pose.orientation = position.pose.orientation #Quaternion(*rotation)
         # msg.pose.covariance = self.FillCovaraince()
@@ -137,15 +145,28 @@ class p3p_process_data:
         msg2 = TransformStamped()
         msg2.header.stamp = header.stamp
         msg2.header.frame_id = "map"
-        msg2.child_frame_id = "base_link_est" #should be the est of cam
-        # msg2.transform.translation = Point(*[0,0,0])
-        msg2.transform.translation = position.pose.position #Point(*translation)
-        msg2.transform.rotation = position.pose.orientation #Quaternion(*rotation)
-        # rospy.loginfo("SENDING NEW POSE ODOM BASELINK FROM P3P")
-        print("translation", translation)
-        print("rotation", rotation)
+        msg2.child_frame_id = "base_link"
+        msg2.transform.translation = Point(*translation_inv)
+        msg2.transform.rotation = Quaternion(*quaternion_inv)
+        print("translation", translation_inv)
+        print("rotation", quaternion_inv)
+        self.br.sendTransform(msg2)
+
+        #################################################################
+        ##### JUST FOR SHOWING CAMERA_EST (DIRECT RESULT FROM E-PNP)#####
+        #################################################################
+        # inverted_matrix = tf_conversions.transformations.inverse_matrix(result)
+        # translation = inverted_matrix[:-1,-1]
+        # rotation = tf_trans.quaternion_from_matrix(inverted_matrix)
+        # rotation = rotation/np.linalg.norm(rotation)
+        # msg2 = TransformStamped()
+        # msg2.header.stamp = header.stamp
+        # msg2.header.frame_id = "map"
+        # msg2.child_frame_id = "camera_est"
+        # msg2.transform.translation = Point(*translation)
+        # msg2.transform.rotation = Quaternion(*rotation)
         # self.br.sendTransform(msg2)
-    
+
     def FillCovaraince(self):
         pass
 

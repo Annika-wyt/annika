@@ -142,15 +142,15 @@ class p3p_process_data:
         self.PosePub.publish(msg)
 
 
-        msg2 = TransformStamped()
-        msg2.header.stamp = header.stamp
-        msg2.header.frame_id = "map"
-        msg2.child_frame_id = "base_link"
-        msg2.transform.translation = Point(*translation_inv)
-        msg2.transform.rotation = Quaternion(*quaternion_inv)
-        print("translation", translation_inv)
-        print("rotation", quaternion_inv)
-        self.br.sendTransform(msg2)
+        # msg2 = TransformStamped()
+        # msg2.header.stamp = header.stamp
+        # msg2.header.frame_id = "map"
+        # msg2.child_frame_id = "base_link"
+        # msg2.transform.translation = Point(*translation_inv)
+        # msg2.transform.rotation = Quaternion(*quaternion_inv)
+        # print("translation", translation_inv)
+        # print("rotation", quaternion_inv)
+        # self.br.sendTransform(msg2)
 
         #################################################################
         ##### JUST FOR SHOWING CAMERA_EST (DIRECT RESULT FROM E-PNP)#####

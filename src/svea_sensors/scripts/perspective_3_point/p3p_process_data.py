@@ -117,30 +117,31 @@ class p3p_process_data:
         temppose.header = header
         temppose.pose.position = Point(*translation)
         temppose.pose.orientation = Quaternion(*rotation)
+        try: 
+            transform_aruco_map = self.buffer.lookup_transform("base_link", "camera", header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
+            position = tf2_geometry_msgs.do_transform_pose(temppose, transform_aruco_map) 
+            quaternion = np.array([position.pose.orientation.x, position.pose.orientation.y, position.pose.orientation.z, position.pose.orientation.w])
+            translation = np.array([position.pose.position.x, position.pose.position.y, position.pose.position.z])
+            quaternion_inv = tf.transformations.quaternion_conjugate(quaternion)
+            rotation_matrix_inv = tf.transformations.quaternion_matrix(quaternion_inv)
+            translation_inv = -np.dot(rotation_matrix_inv[:3, :3], translation)
 
-        transform_aruco_map = self.buffer.lookup_transform("base_link", "camera", header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
-        position = tf2_geometry_msgs.do_transform_pose(temppose, transform_aruco_map) 
-        quaternion = np.array([position.pose.orientation.x, position.pose.orientation.y, position.pose.orientation.z, position.pose.orientation.w])
-        translation = np.array([position.pose.position.x, position.pose.position.y, position.pose.position.z])
-        quaternion_inv = tf.transformations.quaternion_conjugate(quaternion)
-        rotation_matrix_inv = tf.transformations.quaternion_matrix(quaternion_inv)
-        translation_inv = -np.dot(rotation_matrix_inv[:3, :3], translation)
-
-        msg = Odometry()
-        msg.header = header
-        msg.header.frame_id = "map"
-        msg.child_frame_id = "base_link" 
-        msg.pose.pose.position = position.pose.position #Point(*translation)
-        msg.pose.pose.orientation = position.pose.orientation #Quaternion(*rotation)
-        # msg.pose.covariance = self.FillCovaraince()
-        msg.pose.covariance = [1e-3, 0.0, 0.0, 0.0, 0.0, 0.0,
-                               0.0, 1e-3, 0.0, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 1e-3, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 1e-3, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 1e-3, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 0.0, 1e-3]
-        self.PosePub.publish(msg)
-
+            msg = Odometry()
+            msg.header = header
+            msg.header.frame_id = "map"
+            msg.child_frame_id = "base_link" 
+            msg.pose.pose.position = position.pose.position #Point(*translation)
+            msg.pose.pose.orientation = position.pose.orientation #Quaternion(*rotation)
+            # msg.pose.covariance = self.FillCovaraince()
+            msg.pose.covariance = [1e-3, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 1e-3, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 1e-3, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 1e-3, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 1e-3, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.0, 1e-3]
+            self.PosePub.publish(msg)
+        except Exception as e:
+            pass
 
         # msg2 = TransformStamped()
         # msg2.header.stamp = header.stamp

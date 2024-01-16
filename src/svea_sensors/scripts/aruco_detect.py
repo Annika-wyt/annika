@@ -86,6 +86,41 @@ class aruco_detect:
         CoorArray = ArucoArray()
         CoorArray.header = image.header
         
+        ####################################################
+        ################ FAKE ARUCO INPUT ##################
+        ####################################################
+
+        # tempidlist = [10,11,12,13,14]
+        # temp2dlist = [[110.75, 312.75], [321.5, 183.25],[226.75, 300.25],[334.5,295.25],[256.75, 185.25]]
+        # temp3dtranslist = [[1.3375, 0.0656, 0.11208],[1.9656, -0.45626, 0.40923],[1.5389166883418355, -0.14251363529411656, 0.10319558148637761],[1.52224, -0.3869, 0.10880],[1.96482, -0.251415, 0.39841]]
+        # temp3drotlist = [[0.5830346806744786, -0.46681744013238335, -0.41429800114788345, 0.520104994173221],[0.5268924827774656, -0.4530495126004113, -0.41710572284442976, 0.5857928530594703],[0.3401925386391215, -0.4785159393007294, -0.6300308911726228, 0.5082839842623817],[0.483782002498004, -0.488529528618286, -0.512462885282696, 0.5144663885374339],[0.4838306475100693, -0.40487469023736683, -0.5031715243574452, 0.5905952986698999]]
+
+        # for aruco_id, imagexy, translation, rotation in zip(tempidlist, temp2dlist, temp3dtranslist, temp3drotlist):
+        #     aruco_msg = Aruco()
+        #     aruco_msg.image_x = imagexy[0]
+        #     aruco_msg.image_y = imagexy[1]
+
+        #     ## Publish
+        #     marker = Marker()
+        #     marker.header = image.header
+        #     marker.id = int(aruco_id)
+        #     marker.pose.pose.position = Point(*translation)
+        #     marker.pose.pose.orientation = Quaternion(*rotation)
+        #     marker.confidence = 1 # NOTE: Set this to something more relevant?
+        #     aruco_msg.marker = marker
+
+        #     Vmarker = VM()
+        #     Vmarker.header = image.header
+        #     Vmarker.id = int(aruco_id)
+        #     Vmarker.pose.position = Point(*translation)
+        #     Vmarker.pose.orientation = Quaternion(*rotation)
+        #     Vmarker.scale = Vector3(*[0.1, 0.1, 0.1])
+        #     Vmarker.color = ColorRGBA(*[0, 1, 0, 1])
+        #     markerArray.markers.append(marker)
+        #     CoorArray.arucos.append(aruco_msg)
+        #     self.pub_aruco_marker.publish(Vmarker)
+        # self.pub_aruco_marker_coordinate.publish(CoorArray)
+
         for aruco_id, aruco_corner, rvec, tvec in zip(ids, corners, rvecs, tvecs):
             mtx = np.zeros((4, 4))
             mtx[:3, :3] = cv2.Rodrigues(rvec)[0]
@@ -95,8 +130,9 @@ class aruco_detect:
             rotation = tf_conversions.transformations.quaternion_from_matrix(mtx)
 
             # if False:
-            arucoList = [0,1,2,3,4,5]
-            if aruco_id not in arucoList:
+            arucoAnchorList = [0,1,2,3,4,5]
+            arucoList = [10,11,12,13,14]
+            if aruco_id in arucoList:
                 try: 
                     ## Broadcast
                     arucoPose = PoseStamped()
@@ -149,7 +185,8 @@ class aruco_detect:
                 except Exception as e:
                     pass
                     # rospy.logerr(f"{e}")
-            else:
+                
+            elif aruco_id in arucoAnchorList:
                 ## Broadcast
                 t = TransformStamped()
                 t.header = image.header

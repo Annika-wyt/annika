@@ -141,7 +141,7 @@ class p3p_process_data:
                                 #    0.0, 0.0, 0.0, 0.0, 0.0, 1e-3]
             self.PosePub.publish(msg)
         except Exception as e:
-            pass
+            rospy.logerr(f'{e}')
 
         #################################################################
         ########### FOR SHOWING BASE_LINK (IF EKF IS NOT USED)###########

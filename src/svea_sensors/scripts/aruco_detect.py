@@ -49,7 +49,7 @@ class aruco_detect:
         ## Publishers
         # self.pub_aruco_pose = rospy.Publisher(self.PUB_ARUCO_POSE, MarkerArray, queue_size=5)
         self.pub_aruco_marker = rospy.Publisher('/aruco/marker', VM, queue_size=5)
-        self.pub_aruco_marker_coordinate = rospy.Publisher('/aruco/detection', ArucoArray, queue_size=5)
+        self.pub_aruco_marker_coordinate = rospy.Publisher('/aruco/2Ddetection', ArucoArray, queue_size=5)
         self.image_pub = rospy.Publisher('/your_modified_image_topic', Image, queue_size=10)
         # rospy.loginfo(self.PUB_ARUCO_POSE)
 
@@ -159,9 +159,7 @@ class aruco_detect:
                     aruco_msg.image_x, aruco_msg.image_y = np.mean(markerCorners, axis=0)
 
                     cv2.circle(gray, (int(aruco_msg.image_x), int(aruco_msg.image_y)), 50, (0,255,0), 2)
-                    
                     self.image_pub.publish(CvBridge().cv2_to_imgmsg(gray, "passthrough"))
-
 
                     ## Publish  
                     marker = Marker()
@@ -171,6 +169,8 @@ class aruco_detect:
                     marker.pose.pose.orientation = position.pose.orientation
                     marker.confidence = 1 # NOTE: Set this to something more relevant?
                     aruco_msg.marker = marker
+                    aruco_msg.marker.pose.pose.position = Vector3(*[0, 0, 0])
+                    aruco_msg.marker.pose.pose.orientation = Quaternion(*[0, 0, 0, 1])
                     
                     Vmarker = VM()
                     Vmarker.header = position.header
@@ -183,8 +183,8 @@ class aruco_detect:
                     CoorArray.arucos.append(aruco_msg)
                     self.pub_aruco_marker.publish(Vmarker)
                 except Exception as e:
-                    pass
-                    # rospy.logerr(f"{e}")
+                    # pass
+                    rospy.logerr(f"{e}")
                 
             elif aruco_id in arucoAnchorList:
                 ## Broadcast

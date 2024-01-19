@@ -94,7 +94,7 @@ class p3p_process_data:
 
         cam_matrix = np.array(self.cameraDict['K'], dtype=np.float32).reshape(3,3)
         dis_matrix = np.array(self.cameraDict['D'], dtype=np.float32)
-        if len(coor3d) >= 4:
+        if len(coor3d) >= 5:
             success, rotation_vector, translation_vector = cv2.solvePnP(coor3d, coor2d, cam_matrix, dis_matrix, flags=cv2.SOLVEPNP_EPNP)
             rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
             # result = self.solvePNP.estimation(self.cameraDict, self.arucoDict, self.estimateDict)
@@ -132,26 +132,29 @@ class p3p_process_data:
             msg.child_frame_id = "base_link" 
             msg.pose.pose.position = position.pose.position #Point(*translation)
             msg.pose.pose.orientation = position.pose.orientation #Quaternion(*rotation)
-            # msg.pose.covariance = self.FillCovaraince()
-            msg.pose.covariance = [1e-3, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                   0.0, 1e-3, 0.0, 0.0, 0.0, 0.0,
-                                   0.0, 0.0, 1e-3, 0.0, 0.0, 0.0,
-                                   0.0, 0.0, 0.0, 1e-3, 0.0, 0.0,
-                                   0.0, 0.0, 0.0, 0.0, 1e-3, 0.0,
-                                   0.0, 0.0, 0.0, 0.0, 0.0, 1e-3]
+            msg.pose.covariance = self.FillCovaraince()
+            # msg.pose.covariance = [1e-3, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                #    0.0, 1e-3, 0.0, 0.0, 0.0, 0.0,
+                                #    0.0, 0.0, 1e-3, 0.0, 0.0, 0.0,
+                                #    0.0, 0.0, 0.0, 1e-3, 0.0, 0.0,
+                                #    0.0, 0.0, 0.0, 0.0, 1e-3, 0.0,
+                                #    0.0, 0.0, 0.0, 0.0, 0.0, 1e-3]
             self.PosePub.publish(msg)
         except Exception as e:
             pass
 
-        # msg2 = TransformStamped()
-        # msg2.header.stamp = header.stamp
-        # msg2.header.frame_id = "map"
-        # msg2.child_frame_id = "base_link"
-        # msg2.transform.translation = Point(*translation_inv)
-        # msg2.transform.rotation = Quaternion(*quaternion_inv)
-        # print("translation", translation_inv)
-        # print("rotation", quaternion_inv)
-        # self.br.sendTransform(msg2)
+        #################################################################
+        ########### FOR SHOWING BASE_LINK (IF EKF IS NOT USED)###########
+        #################################################################
+        msg2 = TransformStamped()
+        msg2.header.stamp = header.stamp
+        msg2.header.frame_id = "map"
+        msg2.child_frame_id = "base_link"
+        msg2.transform.translation = Point(*translation_inv)
+        msg2.transform.rotation = Quaternion(*quaternion_inv)
+        print("translation", translation_inv)
+        print("rotation", quaternion_inv)
+        self.br.sendTransform(msg2)
 
         #################################################################
         ##### JUST FOR SHOWING CAMERA_EST (DIRECT RESULT FROM E-PNP)#####
@@ -169,7 +172,9 @@ class p3p_process_data:
         # self.br.sendTransform(msg2)
 
     def FillCovaraince(self):
-        pass
+        TransCov = np.eye(3,6, dtype=float)*1e-3
+        RotCov = np.eye(3,6, k=3, dtype=float)*1e-3*5
+        return np.vstack((TransCov, RotCov)).flatten()
 
 if __name__ == '__main__':
     p3p_process_data().run()

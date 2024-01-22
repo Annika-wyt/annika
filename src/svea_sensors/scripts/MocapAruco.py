@@ -12,6 +12,7 @@ from svea_msgs.msg import Aruco, ArucoArray
 import tf2_geometry_msgs
 from message_filters import Subscriber, ApproximateTimeSynchronizer
 
+ARUCOLIST = [10,11,12,13,14]
 
 class MocapAruco:
     def __init__(self):
@@ -20,7 +21,6 @@ class MocapAruco:
 
         # Parameters
         self.debugMode = rospy.get_param('~debugMode', True)
-
         # Subscriber
         Aruco2Ddetection = Subscriber('/aruco/2Ddetection', ArucoArray)
         MocapAruco10 = Subscriber('/qualisys/aruco10/pose', PoseStamped)
@@ -45,19 +45,20 @@ class MocapAruco:
 
     def ArucoCombine2D3D(self, A2Dmsg, MA10msg, MA11msg, MA12msg, MA13msg, MA14msg):
         for aruco in A2Dmsg.arucos:
-            currentAruco = locals()["MA{}msg".format(aruco.marker.id)]
-            try:
-                MapMocapTransform = self.buffer.lookup_transform('map', 'mocap', aruco.marker.header.stamp, rospy.Duration(0.5))
-                MapAruco = tf2_geometry_msgs.do_transform_pose(currentAruco, MapMocapTransform)
-                aruco.marker.pose.pose.position = MapAruco.pose.position
-                aruco.marker.pose.pose.orientation = MapAruco.pose.orientation
-                aruco.marker.pose.covariance = self.FillCovaraince()
-                if self.debugMode:
-                    self.debug(aruco.marker)
-                    # print(aruco.marker.id)
-                    # print(MapAruco)
-            except Exception as e:
-                rospy.logerr(f'{e}')
+            if aruco.marker.id in ARUCOLIST: 
+                currentAruco = locals()["MA{}msg".format(aruco.marker.id)]
+                try:
+                    MapMocapTransform = self.buffer.lookup_transform('map', 'mocap', aruco.marker.header.stamp, rospy.Duration(0.5))
+                    MapAruco = tf2_geometry_msgs.do_transform_pose(currentAruco, MapMocapTransform)
+                    aruco.marker.pose.pose.position = MapAruco.pose.position
+                    aruco.marker.pose.pose.orientation = MapAruco.pose.orientation
+                    aruco.marker.pose.covariance = self.FillCovaraince()
+                    if self.debugMode:
+                        self.debug(aruco.marker)
+                        # print(aruco.marker.id)
+                        # print(MapAruco)
+                except Exception as e:
+                    rospy.logerr(f'{e}')
         self.MapArucoPub.publish(A2Dmsg)
             
     def FillCovaraince(self):

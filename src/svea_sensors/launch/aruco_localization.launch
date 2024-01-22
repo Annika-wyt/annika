@@ -14,7 +14,7 @@
     <arg name="initial_pose_a"          default="0.0" />
 
     <!-- low-level interface (serial) -->
-    <arg name="start_serial"            default="false" /> 
+    <arg name="start_serial"            default="true" /> 
     <!-- Should be set to true, if only the localization is running 
     (i.e. this is needed in order to have wheel encoders and actuation_to_twist working) -->
     <arg name="lli_port"                default="/dev/ttyACM0"/>
@@ -41,7 +41,7 @@
     <arg name="publish_pose"            default="true"/>
 
     <!-- camera for detection -->
-    <arg name="camera_device_id"        default="1"/>
+    <arg name="camera_device_id"        default="0"/>
     <arg name="camera_info_file"        default="e_con_camera_4k.yaml"/>
 
     <!-- Aruco -->
@@ -51,12 +51,12 @@
 
     <!-- Nodes -->
     <!-- Start low-level interface -->
-    <group if="$(arg start_serial)">
-        <node pkg="rosserial_python" type="serial_node.py" name="serial_node">
-            <param name="port" value="$(arg lli_port)"/>
-            <param name="baud" value="250000"/>
-        </node>
-    </group>
+    <!-- <group if="$(arg start_serial)"> -->
+        <!-- <node pkg="rosserial_python" type="serial_node.py" name="serial_node"> -->
+            <!-- <param name="port" value="$(arg lli_port)"/> -->
+            <!-- <param name="baud" value="250000"/> -->
+        <!-- </node> -->
+    <!-- </group> -->
 
     <!-- Start map server -->
     <!-- <node if="$(eval map != '')" pkg="map_server" type="map_server" name="map_server" output="screen" args="$(arg map_file)"/> -->
@@ -84,21 +84,22 @@
         <include file="$(find svea_sensors)/launch/sensors_launch/controller.launch"></include>
 
         <!-- Start wheel encoder -->
-        <include if="$(arg start_wheel_encoders)" file="$(find svea_sensors)/launch/sensors_launch/wheel_encoder.launch"></include>
+        <!-- <include if="$(arg start_wheel_encoders)" file="$(find svea_sensors)/launch/sensors_launch/wheel_encoder.launch"></include> -->
 
         <!-- Static transforms for sensors -->
-        <node pkg="tf2_ros" type="static_transform_publisher" name="odommap_broadcaster"        args="0 0 0 0 0 0 map odom" />   
-        <node pkg="tf2_ros" type="static_transform_publisher" name="linkodom_broadcaster"       args="0 0 0 0 0 0 odom base_link" />   
-        <node pkg="tf2_ros" type="static_transform_publisher" name="imulink_broadcaster"        args="0 0 0.1 0 0 0 base_link imu" />
-        <node pkg="tf2_ros" type="static_transform_publisher" name="gpslink_broadcaster"        args="-0.058 -0.015  0.115 0 0 0 base_link gps" />
-        <node pkg="tf2_ros" type="static_transform_publisher" name="cameralink_broadcaster"     args="0.383 0.0 0.255 -1.57 0 -1.57 base_link camera" />  <!-- for e-com-4k -->
-        <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco_broadcaster"       args="0 0 0 0 0 0 map aruco0" />
+        <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="odommap_broadcaster"        args="0 0 0 0 0 0 map odom" />    -->
+        <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="linkodom_broadcaster"       args="0 0 0 0 0 0 odom base_link" />    -->
+        <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="imulink_broadcaster"        args="0 0 0.1 0 0 0 base_link imu" /> -->
+        <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="gpslink_broadcaster"        args="-0.058 -0.015  0.115 0 0 0 base_link gps" /> -->
+        <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco_broadcaster"       args="0 0 0 0 0 0 map aruco0" /> -->
+        <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="cameralink_broadcaster"     args="0.383 0.0 0.255 -1.57 0 -1.57 base_link camera" />   -->
+        <!-- for e-com-4k -->
 
-        <group if="$(arg is_indoors)">
-            <node pkg="tf2_ros" type="static_transform_publisher" name="lidarlink_broadcaster"  args="0.284 0 0.2 0 0 0 1 base_link laser" />
-            <node pkg="tf2_ros" type="static_transform_publisher" name="t265_link_broadcaster"  args="0.09 0 0.215 0 -1.57 3.14 base_link t265_camera_pose_frame" />
-            <node pkg="tf2_ros" type="static_transform_publisher" name="t265_odom_broadcaster"  args="0.09 0 0.215 0 -1.57 3.14 odom t265_camera_odom_frame" />
-        </group>
+        <!-- <group if="$(arg is_indoors)"> -->
+            <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="lidarlink_broadcaster"  args="0.284 0 0.2 0 0 0 1 base_link laser" /> -->
+            <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="t265_link_broadcaster"  args="0.09 0 0.215 0 -1.57 3.14 base_link t265_camera_pose_frame" /> -->
+            <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="t265_odom_broadcaster"  args="0.09 0 0.215 0 -1.57 3.14 odom t265_camera_odom_frame" /> -->
+        <!-- </group> -->
 
         <!-- Start camera -->
         <!-- <include file="$(find svea_sensors)/launch/sensors_launch/camera.launch"> -->
@@ -114,7 +115,7 @@
         </include>
 
         <!-- Start ArUco Positioning-->
-        <node name="aruco_pose" pkg="svea_sensors" type="aruco_pose.py" output="screen"/>
+        <!-- <node name="aruco_pose" pkg="svea_sensors" type="aruco_pose.py" output="screen"/> -->
             
     </group>
 
@@ -172,6 +173,7 @@
     </node>
     
     <!-- Perspective-3-point algorithm -->
+    <!-- <node name="MocapAruco" pkg="svea_sensors" type="MocapAruco.py" output="screen"/> -->
     <!-- <node name="p3p_process_data" pkg="svea_sensors" type="p3p_process_data.py" output="screen"/> -->
 
     <!-- <node name="perspective_3_point" pkg="svea_sensors" type="perspective_3_point.py" output="screen"/> -->

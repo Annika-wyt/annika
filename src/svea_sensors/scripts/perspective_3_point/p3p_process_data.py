@@ -130,8 +130,8 @@ class p3p_process_data:
             msg.header = header
             msg.header.frame_id = "map"
             msg.child_frame_id = "base_link" 
-            msg.pose.pose.position = position.pose.position #Point(*translation)
-            msg.pose.pose.orientation = position.pose.orientation #Quaternion(*rotation)
+            msg.pose.pose.position = Point(*translation_inv)
+            msg.pose.pose.orientation = Quaternion(*quaternion_inv)
             msg.pose.covariance = self.FillCovaraince()
             # msg.pose.covariance = [1e-3, 0.0, 0.0, 0.0, 0.0, 0.0,
                                 #    0.0, 1e-3, 0.0, 0.0, 0.0, 0.0,
@@ -154,7 +154,7 @@ class p3p_process_data:
         msg2.transform.rotation = Quaternion(*quaternion_inv)
         print("translation", translation_inv)
         print("rotation", quaternion_inv)
-        self.br.sendTransform(msg2)
+        # self.br.sendTransform(msg2)
 
         #################################################################
         ##### JUST FOR SHOWING CAMERA_EST (DIRECT RESULT FROM E-PNP)#####

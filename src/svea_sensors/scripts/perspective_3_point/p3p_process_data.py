@@ -69,7 +69,10 @@ class p3p_process_data:
         # Get Camera Info
         self.cameraDict['D'] = np.array(CameraMsg.D)
         self.cameraDict['K'] = np.array(CameraMsg.K)
-        # Get Initial Guess
+
+        ################################################################
+        ####################### Get Initial Pose #######################
+        ################################################################
         # try:
         #     OdomMapTrans = self.buffer.lookup_transform("map", 'odom', PoseMsg.header.stamp, rospy.Duration(0.5))
         #     poseEKF = PoseStamped()
@@ -96,13 +99,14 @@ class p3p_process_data:
         dis_matrix = np.array(self.cameraDict['D'], dtype=np.float32)
         if len(coor3d) >= 5:
             success, rotation_vector, translation_vector = cv2.solvePnP(coor3d, coor2d, cam_matrix, dis_matrix, flags=cv2.SOLVEPNP_EPNP)
-            rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
-            # result = self.solvePNP.estimation(self.cameraDict, self.arucoDict, self.estimateDict)
-            result = np.hstack((rotation_matrix, translation_vector))
-            result = np.vstack((result, [0,0,0,1]))
-            self.publish_pose(result, deepcopy(self.header))
-            # if success:
-                # self.publish_pose(success)
+            if success:
+                rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
+                # result = self.solvePNP.estimation(self.cameraDict, self.arucoDict, self.estimateDict)
+                result = np.hstack((rotation_matrix, translation_vector))
+                result = np.vstack((result, [0,0,0,1]))
+                self.publish_pose(result, deepcopy(self.header))
+                # if success:
+                    # self.publish_pose(success)
 
     def publish_pose(self, result, header):
         # inverted_transform = tf_conversions.toTransform(tf_conversions.fromMatrix(inverted_matrix))

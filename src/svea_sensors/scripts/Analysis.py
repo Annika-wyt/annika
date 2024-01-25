@@ -13,7 +13,7 @@ import os
 
 from nav_msgs.msg import Odometry
 
-BAGNUMBER = 1
+BAGNUMBER = 7
 
 BagPaths = {
     1: '/home/annika/ITRL/kth_thesis/rosbag/2024-01-22/working_epnp_with_EKF.bag',
@@ -21,7 +21,8 @@ BagPaths = {
     3: '/home/annika/ITRL/kth_thesis/rosbag/2024-01-22/EKF_epnp_4landmarks.bag',
     4: '/home/annika/ITRL/kth_thesis/rosbag/2024-01-25/epnp_alone_4_landmarks.bag',
     5: '/home/annika/ITRL/kth_thesis/rosbag/2024-01-25/iterative_pnp_alone.bag',
-    6: '/home/annika/ITRL/kth_thesis/rosbag/2024-01-25/iterative_pnp_with_ekf.bag'
+    6: '/home/annika/ITRL/kth_thesis/rosbag/2024-01-25/iterative_pnp_with_ekf.bag',
+    7: '/home/annika/ITRL/kth_thesis/rosbag/2024-01-25/p3p_alone.bag'
     }
 
 Bag = BagPaths[BAGNUMBER]
@@ -29,6 +30,8 @@ if BAGNUMBER == 5 or BAGNUMBER == 6:
     ARUCOLIST = [0, 10, 11, 12, 13, 14]
 elif BAGNUMBER == 4:
     ARUCOLIST = [10, 11, 12, 14]
+elif BAGNUMBER == 7:
+    ARUCOLIST = [11, 12, 14]
 else:
     ARUCOLIST = [10, 11, 12, 13, 14]
 
@@ -51,6 +54,12 @@ class Analysis:
         elif BAGNUMBER == 4:
             self.Aruco = {
                 10 : [],
+                11 : [],
+                12 : [],
+                14 : []
+            }
+        elif BAGNUMBER == 7:
+            self.Aruco = {
                 11 : [],
                 12 : [],
                 14 : []

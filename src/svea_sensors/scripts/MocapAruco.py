@@ -12,7 +12,7 @@ from svea_msgs.msg import Aruco, ArucoArray
 import tf2_geometry_msgs
 from message_filters import Subscriber, ApproximateTimeSynchronizer
 
-ARUCOLIST = [10,11,12,13,14]
+ARUCOLIST = [10,11,12,13,14,15]
 
 class MocapAruco:
     def __init__(self):
@@ -21,15 +21,18 @@ class MocapAruco:
 
         # Parameters
         self.debugMode = rospy.get_param('~debugMode', True)
+
         # Subscriber
         Aruco2Ddetection = Subscriber('/aruco/2Ddetection', ArucoArray)
+        # MocapAruco0 = Subscriber('/qualisys/arucoAnchor/pose', PoseStamped)
         MocapAruco10 = Subscriber('/qualisys/aruco10/pose', PoseStamped)
         MocapAruco11 = Subscriber('/qualisys/aruco11/pose', PoseStamped)
         MocapAruco12 = Subscriber('/qualisys/aruco12/pose', PoseStamped)
         MocapAruco13 = Subscriber('/qualisys/aruco13/pose', PoseStamped)
         MocapAruco14 = Subscriber('/qualisys/aruco14/pose', PoseStamped)
+        MocapAruco15 = Subscriber('/qualisys/aruco15/pose', PoseStamped)
 
-        sync = ApproximateTimeSynchronizer([Aruco2Ddetection, MocapAruco10, MocapAruco11, MocapAruco12, MocapAruco13, MocapAruco14], queue_size=10, slop=1)
+        sync = ApproximateTimeSynchronizer([Aruco2Ddetection, MocapAruco10, MocapAruco11, MocapAruco12, MocapAruco13, MocapAruco14, MocapAruco15], queue_size=10, slop=5)
         sync.registerCallback(self.ArucoCombine2D3D)
 
         # Publisher
@@ -43,7 +46,7 @@ class MocapAruco:
     def run(self):
         rospy.spin()
 
-    def ArucoCombine2D3D(self, A2Dmsg, MA10msg, MA11msg, MA12msg, MA13msg, MA14msg):
+    def ArucoCombine2D3D(self, A2Dmsg, MA10msg, MA11msg, MA12msg, MA13msg, MA14msg, MA15msg):
         for aruco in A2Dmsg.arucos:
             if aruco.marker.id in ARUCOLIST: 
                 currentAruco = locals()["MA{}msg".format(aruco.marker.id)]

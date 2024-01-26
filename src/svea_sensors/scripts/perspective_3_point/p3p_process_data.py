@@ -97,9 +97,13 @@ class p3p_process_data:
 
         cam_matrix = np.array(self.cameraDict['K'], dtype=np.float32).reshape(3,3)
         dis_matrix = np.array(self.cameraDict['D'], dtype=np.float32)
-        if len(coor3d) >= 5:
+        if len(coor3d) >= 6:
+            # success, rotation_vector, translation_vector = cv2.solvePnP(coor3d, coor2d, cam_matrix, dis_matrix, flags=cv2.SOLVEPNP_ITERATIVE)
+            # success, rotation_vectors, translation_vectors = cv2.solvePnP(coor3d, coor2d, cam_matrix, dis_matrix, flags=cv2.SOLVEPNP_P3P)
             success, rotation_vector, translation_vector = cv2.solvePnP(coor3d, coor2d, cam_matrix, dis_matrix, flags=cv2.SOLVEPNP_EPNP)
             if success:
+                # rotation_vector = rotation_vectors[0]
+                # translation_vector = translation_vectors[0]
                 rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
                 # result = self.solvePNP.estimation(self.cameraDict, self.arucoDict, self.estimateDict)
                 result = np.hstack((rotation_matrix, translation_vector))
@@ -109,9 +113,6 @@ class p3p_process_data:
                     # self.publish_pose(success)
 
     def publish_pose(self, result, header):
-        # inverted_transform = tf_conversions.toTransform(tf_conversions.fromMatrix(inverted_matrix))
-        # print(inverted_transform)
-
         # this is world @ camera frame
         translation = result[:-1,-1]
         rotation = tf_trans.quaternion_from_matrix(result)
@@ -137,12 +138,6 @@ class p3p_process_data:
             msg.pose.pose.position = Point(*translation_inv)
             msg.pose.pose.orientation = Quaternion(*quaternion_inv)
             msg.pose.covariance = self.FillCovaraince()
-            # msg.pose.covariance = [1e-3, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                #    0.0, 1e-3, 0.0, 0.0, 0.0, 0.0,
-                                #    0.0, 0.0, 1e-3, 0.0, 0.0, 0.0,
-                                #    0.0, 0.0, 0.0, 1e-3, 0.0, 0.0,
-                                #    0.0, 0.0, 0.0, 0.0, 1e-3, 0.0,
-                                #    0.0, 0.0, 0.0, 0.0, 0.0, 1e-3]
             self.PosePub.publish(msg)
         except Exception as e:
             rospy.logerr(f'{e}')
@@ -158,7 +153,7 @@ class p3p_process_data:
         msg2.transform.rotation = Quaternion(*quaternion_inv)
         print("translation", translation_inv)
         print("rotation", quaternion_inv)
-        # self.br.sendTransform(msg2)
+        self.br.sendTransform(msg2)
 
         #################################################################
         ##### JUST FOR SHOWING CAMERA_EST (DIRECT RESULT FROM E-PNP)#####

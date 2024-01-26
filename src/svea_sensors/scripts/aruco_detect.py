@@ -17,6 +17,9 @@ from svea_msgs.msg import Aruco, ArucoArray
 from std_msgs.msg import ColorRGBA
 import tf2_geometry_msgs
 
+arucoAnchorList = [0,1,2,3,4,5]
+arucoList = [10,11,12,13,14,15]
+
 class aruco_detect:
 
     def __init__(self):
@@ -130,8 +133,7 @@ class aruco_detect:
             rotation = tf_conversions.transformations.quaternion_from_matrix(mtx)
 
             # if False:
-            arucoAnchorList = [0,1,2,3,4,5]
-            arucoList = [10,11,12,13,14]
+            
             if aruco_id in arucoList:
                 try: 
                     ## Broadcast

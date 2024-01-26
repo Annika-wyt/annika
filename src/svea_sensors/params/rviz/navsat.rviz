@@ -33,7 +33,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: Image
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -76,6 +76,50 @@ Visualization Manager:
       Frame Timeout: 10
       Frames:
         All Enabled: false
+        aruco0:
+          Value: false
+        aruco1:
+          Value: false
+        aruco10:
+          Value: false
+        aruco11:
+          Value: false
+        aruco12:
+          Value: false
+        aruco14:
+          Value: false
+        aruco2:
+          Value: false
+        aruco3:
+          Value: false
+        aruco4:
+          Value: false
+        aruco5:
+          Value: false
+        arucoCamera10:
+          Value: true
+        arucoCamera11:
+          Value: true
+        arucoCamera12:
+          Value: true
+        arucoCamera14:
+          Value: true
+        base_link:
+          Value: true
+        camera:
+          Value: true
+        gps:
+          Value: false
+        imu:
+          Value: false
+        map:
+          Value: true
+        mocap:
+          Value: false
+        odom:
+          Value: false
+        svea5:
+          Value: true
       Marker Alpha: 1
       Marker Scale: 1
       Name: TF
@@ -83,7 +127,46 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        {}
+        mocap:
+          aruco10:
+            {}
+          aruco11:
+            {}
+          aruco12:
+            {}
+          aruco14:
+            {}
+          map:
+            aruco0:
+              {}
+            aruco1:
+              {}
+            aruco2:
+              {}
+            aruco3:
+              {}
+            aruco4:
+              {}
+            aruco5:
+              {}
+            arucoCamera10:
+              {}
+            arucoCamera11:
+              {}
+            arucoCamera12:
+              {}
+            arucoCamera14:
+              {}
+            odom:
+              base_link:
+                camera:
+                  {}
+                gps:
+                  {}
+                imu:
+                  {}
+          svea5:
+            {}
       Update Interval: 0
       Value: true
     - Class: rviz/MarkerArray
@@ -239,7 +322,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 9.865545272827148
+      Distance: 6.723093032836914
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -257,7 +340,7 @@ Visualization Manager:
       Near Clip Distance: 0.009999999776482582
       Pitch: 1.5697963237762451
       Target Frame: <Fixed Frame>
-      Yaw: 3.14038348197937
+      Yaw: 3.155383586883545
     Saved: ~
 Window Geometry:
   Displays:

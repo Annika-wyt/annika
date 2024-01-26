@@ -13,8 +13,8 @@ import os
 
 from nav_msgs.msg import Odometry
 
-BAGNUMBER = 5
-SAVEPLOT = False
+BAGNUMBER = 9
+SAVEPLOT = True
 
 BagPaths = {
     1: '/home/annika/ITRL/kth_thesis/rosbag/2024-01-22/working_epnp_with_EKF.bag',

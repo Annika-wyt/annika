@@ -19,3 +19,4 @@ site/
 ricatti_solution_own_rk45_sim1_without_noise.txt
 ricatti_solution_own_rk45_sim3_without_noise.txt
 ricatti_solution_own_rk45_sim4_without_noise.txt
+ricatti_solution_for_100s_step_1e-3_rtol_atol_1e-7.txt

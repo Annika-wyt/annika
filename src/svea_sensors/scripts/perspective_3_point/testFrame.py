@@ -52,7 +52,7 @@ class testFrame():
         msg.header.stamp = rospy.Time.now()
         msg.header.frame_id = 'map'
         msg.child_frame_id = 'odom'
-        msg.transform.translation = Vector3(*[2.5+2.5*np.cos(0.4*0), 2.5*np.sin(0.4*0), 0])
+        msg.transform.translation = Vector3(*[2.5+2.5*np.cos(0.4*0), 2.5*np.sin(0.4*0), 10])
         msg.transform.rotation = Quaternion(*[0, 0, 0, 1])
         self.sbr.sendTransform(msg)
 
@@ -62,9 +62,10 @@ class testFrame():
         msg.header.stamp = rospy.Time.now()
         msg.header.frame_id = 'map'
         msg.child_frame_id = 'base_link'
-        self.pose = [2.5+2.5*np.cos(0.4*self.t), 2.5*np.sin(0.4*self.t), 0]
+        self.pose = [2.5+2.5*np.cos(0.4*self.t), 2.5*np.sin(0.4*self.t), 10]
         msg.transform.translation = Vector3(*self.pose)
-        omega = np.array([[0.1*np.sin(self.t), 0.4*np.cos(2*self.t), 0.6*self.t]])
+        omega = np.array([[0, 0, 0.6*self.t]])
+        # omega = np.array([[0.1*np.sin(self.t), 0.4*np.cos(2*self.t), 0.6*self.t]])
         rot = ScipyRot.from_matrix(np.cross(self.rot, omega))
         self.rot = ScipyRot.as_matrix(rot)
         qua = rot.as_quat()

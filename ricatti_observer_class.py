@@ -69,6 +69,10 @@ class riccati_observer():
         self.caltime = []
         self.soly.append(initial_state)
         self.current_time = 0
+        self.dt = self.stepsize
+
+        self.show_measurement = True
+        self.i = 0
 
         ################### initialization ###################
         ######################################################
@@ -583,13 +587,73 @@ class riccati_observer():
                 success = True
         return y_next, t, dt, success
 
-    def main(self):
+    def step_simulation(self):
         ### Run solver
         ######################################################
         ####################### Solver #######################
-        dt = self.stepsize
-        i = 0
-        show_measurement = False
+
+        if self.with_image_hz_sim:
+            # show_measurement = any(abs(current_time - t)/(t+1e-10) <= threshold_image for t in image_time)
+            self.show_measurement = np.round(self.current_time, decimals=2) == np.round(self.image_time[min(self.i, len(self.image_time)-1)], decimals=2)
+            if self.show_measurement:
+                if self.randomize_image_input:
+                    l = np.random.rand(len(self.z_appear),1)
+                    l = l/np.linalg.norm(l)
+                    l = np.rint(l).astype(int)
+                    z = self.z_appear[l[:, 0] == 1]
+                    self.l = np.sum(l)
+                    self.q = self.q * l
+                    self.Q = np.diag(np.hstack([np.diag(self.q[aa]*np.eye(3)) for aa in range(l)]))
+                else:
+                    self.l = len(self.z_appear)
+                    z = self.z_appear
+            else:
+                self.l = 0
+                z = np.array([None])
+        else:
+            z = self.z_appear
+
+        args = (self.k, z, self.q, self.Q, self.V, self.noise, self.l, self.which_eq, self.quaternion, self.which_omega)
+        y_next, next_time, new_dt, success = self.rk45_step(self.current_time, self.soly[-1], self.dt, args, self.tol, self.use_adaptive)
+        if self.use_adaptive:
+            if success:
+                self.soly.append(y_next)
+                self.solt.append(self.current_time)
+                self.solimage.append([self.current_time, self.show_measurement])
+                self.solnumlandmark.append(self.l)
+                end_time = systemtime.time()
+                self.caltime.append(end_time - start_time)
+                start_time = end_time
+                if self.with_image_hz_sim:
+                    if self.show_measurement:
+                        self.i += 1
+                    if next_time + new_dt < self.image_time[min(self.i, len(self.image_time)-1)]:
+                        self.dt = new_dt if new_dt != 0 else min(self.stepsize, 1/self.image_hz)
+                    else:
+                        self.dt = abs(self.image_time[min(self.i, len(self.image_time)-1)] - next_time)
+                else:
+                    self.dt = new_dt
+                self.current_time = next_time
+            else:
+                self.dt = new_dt
+        else:
+            if success:
+                self.soly.append(y_next)
+                self.solt.append(self.current_time)
+                end_time = systemtime.time()
+                self.caltime.append(end_time - start_time)
+                start_time = end_time
+                self.current_time += self.dt
+
+    ####################### Solver #######################
+    ######################################################
+    print('\n')
+
+
+    def full_simulation(self):
+        ### Run solver
+        ######################################################
+        ####################### Solver #######################
         start_time = systemtime.time()
         run_time = systemtime.time()
         while self.current_time <= self.time[1]:
@@ -598,8 +662,8 @@ class riccati_observer():
             print(f"{simulation_time_str}{' ' * (40 - len(simulation_time_str))}Run time: {systemtime.time()-run_time}", end='\r', flush=True)
             if self.with_image_hz_sim:
                 # show_measurement = any(abs(current_time - t)/(t+1e-10) <= threshold_image for t in image_time)
-                show_measurement = np.round(self.current_time, decimals=2) == np.round(self.image_time[min(i, len(self.image_time)-1)], decimals=2)
-                if show_measurement:
+                self.show_measurement = np.round(self.current_time, decimals=2) == np.round(self.image_time[min(self.i, len(self.image_time)-1)], decimals=2)
+                if self.show_measurement:
                     if self.randomize_image_input:
                         l = np.random.rand(len(self.z_appear),1)
                         l = l/np.linalg.norm(l)
@@ -607,7 +671,7 @@ class riccati_observer():
                         z = self.z_appear[l[:, 0] == 1]
                         self.l = np.sum(l)
                         self.q = self.q * l
-                        self.Q = np.diag(np.hstack([np.diag(self.q[i]*np.eye(3)) for i in range(l)]))
+                        self.Q = np.diag(np.hstack([np.diag(self.q[aa]*np.eye(3)) for aa in range(l)]))
                     else:
                         self.l = len(self.z_appear)
                         z = self.z_appear
@@ -618,12 +682,12 @@ class riccati_observer():
                 z = self.z_appear
 
             args = (self.k, z, self.q, self.Q, self.V, self.noise, self.l, self.which_eq, self.quaternion, self.which_omega)
-            y_next, next_time, new_dt, success = self.rk45_step(self.current_time, self.soly[-1], dt, args, self.tol, self.use_adaptive)
+            y_next, next_time, new_dt, success = self.rk45_step(self.current_time, self.soly[-1], self.dt, args, self.tol, self.use_adaptive)
             if self.use_adaptive:
                 if success:
                     self.soly.append(y_next)
                     self.solt.append(self.current_time)
-                    self.solimage.append([self.current_time, show_measurement])
+                    self.solimage.append([self.current_time, self.show_measurement])
                     self.solnumlandmark.append(self.l)
                     end_time = systemtime.time()
                     self.caltime.append(end_time - start_time)
@@ -631,17 +695,17 @@ class riccati_observer():
                     if next_time >= self.time[1]:
                         break
                     if self.with_image_hz_sim:
-                        if show_measurement:
-                            i += 1
-                        if next_time + new_dt < self.image_time[min(i, len(self.image_time)-1)]:
-                            dt = new_dt if new_dt != 0 else min(self.stepsize, 1/self.image_hz)
+                        if self.show_measurement:
+                            self.i += 1
+                        if next_time + new_dt < self.image_time[min(self.i, len(self.image_time)-1)]:
+                            self.dt = new_dt if new_dt != 0 else min(self.stepsize, 1/self.image_hz)
                         else:
-                            dt = abs(self.image_time[min(i, len(self.image_time)-1)] - next_time)
+                            self.dt = abs(self.image_time[min(self.i, len(self.image_time)-1)] - next_time)
                     else:
-                        dt = new_dt
+                        self.dt = new_dt
                     self.current_time = next_time
                 else:
-                    dt = new_dt
+                    self.dt = new_dt
             else:
                 if success:
                     self.soly.append(y_next)
@@ -649,7 +713,7 @@ class riccati_observer():
                     end_time = systemtime.time()
                     self.caltime.append(end_time - start_time)
                     start_time = end_time
-                    self.current_time += dt
+                    self.current_time += self.dt
                 else:
                     print(self.current_time, len(self.soly))
                     break

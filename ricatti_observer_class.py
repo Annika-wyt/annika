@@ -77,7 +77,7 @@ class riccati_observer():
         ################### initialization ###################
         ######################################################
 
-        self.print_init()
+        # self.print_init()
 
     def print_init(self):
         Q_str = '   \n'.join(['                             ' + '  '.join(map(str, row)) for row in self.Q])
@@ -591,64 +591,64 @@ class riccati_observer():
         ### Run solver
         ######################################################
         ####################### Solver #######################
-
-        if self.with_image_hz_sim:
-            # show_measurement = any(abs(current_time - t)/(t+1e-10) <= threshold_image for t in image_time)
-            self.show_measurement = np.round(self.current_time, decimals=2) == np.round(self.image_time[min(self.i, len(self.image_time)-1)], decimals=2)
-            if self.show_measurement:
-                if self.randomize_image_input:
-                    l = np.random.rand(len(self.z_appear),1)
-                    l = l/np.linalg.norm(l)
-                    l = np.rint(l).astype(int)
-                    z = self.z_appear[l[:, 0] == 1]
-                    self.l = np.sum(l)
-                    self.q = self.q * l
-                    self.Q = np.diag(np.hstack([np.diag(self.q[aa]*np.eye(3)) for aa in range(l)]))
-                else:
-                    self.l = len(self.z_appear)
-                    z = self.z_appear
-            else:
-                self.l = 0
-                z = np.array([None])
-        else:
-            z = self.z_appear
-
-        args = (self.k, z, self.q, self.Q, self.V, self.noise, self.l, self.which_eq, self.quaternion, self.which_omega)
-        y_next, next_time, new_dt, success = self.rk45_step(self.current_time, self.soly[-1], self.dt, args, self.tol, self.use_adaptive)
-        if self.use_adaptive:
-            if success:
-                self.soly.append(y_next)
-                self.solt.append(self.current_time)
-                self.solimage.append([self.current_time, self.show_measurement])
-                self.solnumlandmark.append(self.l)
-                end_time = systemtime.time()
-                self.caltime.append(end_time - start_time)
-                start_time = end_time
-                if self.with_image_hz_sim:
-                    if self.show_measurement:
-                        self.i += 1
-                    if next_time + new_dt < self.image_time[min(self.i, len(self.image_time)-1)]:
-                        self.dt = new_dt if new_dt != 0 else min(self.stepsize, 1/self.image_hz)
+        success = False
+        while not success:
+            if self.with_image_hz_sim:
+                # show_measurement = any(abs(current_time - t)/(t+1e-10) <= threshold_image for t in image_time)
+                self.show_measurement = np.round(self.current_time, decimals=2) == np.round(self.image_time[min(self.i, len(self.image_time)-1)], decimals=2)
+                if self.show_measurement:
+                    if self.randomize_image_input:
+                        l = np.random.rand(len(self.z_appear),1)
+                        l = l/np.linalg.norm(l)
+                        l = np.rint(l).astype(int)
+                        z = self.z_appear[l[:, 0] == 1]
+                        self.l = np.sum(l)
+                        self.q = self.q * l
+                        self.Q = np.diag(np.hstack([np.diag(self.q[aa]*np.eye(3)) for aa in range(l)]))
                     else:
-                        self.dt = abs(self.image_time[min(self.i, len(self.image_time)-1)] - next_time)
+                        self.l = len(self.z_appear)
+                        z = self.z_appear
+                else:
+                    self.l = 0
+                    z = np.array([None])
+            else:
+                z = self.z_appear
+
+            args = (self.k, z, self.q, self.Q, self.V, self.noise, self.l, self.which_eq, self.quaternion, self.which_omega)
+            y_next, next_time, new_dt, success = self.rk45_step(self.current_time, self.soly[-1], self.dt, args, self.tol, self.use_adaptive)
+            if self.use_adaptive:
+                if success:
+                    self.soly.append(y_next)
+                    self.solt.append(self.current_time)
+                    self.solimage.append([self.current_time, self.show_measurement])
+                    self.solnumlandmark.append(self.l)
+                    end_time = systemtime.time()
+                    # self.caltime.append(end_time - start_time)
+                    # start_time = end_time
+                    if self.with_image_hz_sim:
+                        if self.show_measurement:
+                            self.i += 1
+                        if next_time + new_dt < self.image_time[min(self.i, len(self.image_time)-1)]:
+                            self.dt = new_dt if new_dt != 0 else min(self.stepsize, 1/self.image_hz)
+                        else:
+                            self.dt = abs(self.image_time[min(self.i, len(self.image_time)-1)] - next_time)
+                    else:
+                        self.dt = new_dt
+                    self.current_time = next_time
                 else:
                     self.dt = new_dt
-                self.current_time = next_time
             else:
-                self.dt = new_dt
-        else:
-            if success:
-                self.soly.append(y_next)
-                self.solt.append(self.current_time)
-                end_time = systemtime.time()
-                self.caltime.append(end_time - start_time)
-                start_time = end_time
-                self.current_time += self.dt
+                if success:
+                    self.soly.append(y_next)
+                    self.solt.append(self.current_time)
+                    end_time = systemtime.time()
+                    # self.caltime.append(end_time - start_time)
+                    # start_time = end_time
+                    self.current_time += self.dt
 
-    ####################### Solver #######################
-    ######################################################
-    print('\n')
-
+            ####################### Solver #######################
+            ######################################################
+        return (self.solt[-1], self.dt, self.soly[-1])
 
     def full_simulation(self):
         ### Run solver

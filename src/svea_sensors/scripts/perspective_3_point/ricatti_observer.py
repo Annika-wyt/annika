@@ -13,30 +13,28 @@ class riccati_observer():
         # for key, value in kwargs.items():
             # setattr(self, key, value)
 
-        self.use_adaptive = kwargs.get('use_adaptive', True)
         self.quaternion = kwargs.get('quaternion', True)
-        self.noise = kwargs.get('noise', False)
         self.which_eq = kwargs.get('which_eq', 0)
-        self.with_image_hz_sim = kwargs.get('with_image_hz_sim', False)
-        self.randomize_image_input = kwargs.get('randomize_image_input', False)
-        self.which_omega = kwargs.get('which_omega','full') # "z" or "full"
-        self.time = kwargs.get('time',(0, 10))
         self.stepsize = kwargs.get('stepsize', 0.1)
-
-        self.image_hz = kwargs.get('image_hz', 20)
-        self.image_time = np.arange(self.time[0], self.time[1]+1/self.image_hz, 1/self.image_hz)
         self.tol = kwargs.get('tol', 1e-2 * 3) 
 
+        # self.with_image_hz_sim = kwargs.get('with_image_hz_sim', False)
+        # self.randomize_image_input = kwargs.get('randomize_image_input', False)
+        # self.noise = kwargs.get('noise', False)
+        # self.which_omega = kwargs.get('which_omega','full') # "z" or "full"
+        # self.time = kwargs.get('time',(0, 10))
+        # self.image_hz = kwargs.get('image_hz', 20)
+        # self.image_time = np.arange(self.time[0], self.time[1]+1/self.image_hz, 1/self.image_hz)
+        # self.use_adaptive = kwargs.get('use_adaptive', True)
         # tol = 1e-2 * 5
         # tol = 0.05
-
         ##################### Parameters #####################
         ######################################################
 
         ######################################################
         ################### initialization ###################
         # landmarks
-        self.z_appear = kwargs.get('z_appear', np.array([[[2.5, 2.5, 0]], [[5, 0, 0]], [[0, 0, 0]]]))
+        self.z_appear = kwargs.get('z_appear', np.array([]))
         self.k = kwargs.get('k', 1)
         self.v = kwargs.get('v', [0.1,1])
         self.l = len(self.z_appear)
@@ -44,40 +42,19 @@ class riccati_observer():
         self.q = self.q * self.l
         self.V = np.diag(np.hstack([np.diag(self.v[i]*np.eye(3)) for i in range(len(self.v))]))
         self.Q = np.diag(np.hstack([np.diag(self.q*np.eye(3)) for i in range(self.l)]))
-
-        self.Rot = np.eye(3)
-        ## R_hat = R x R_tilde_bar
-        self.Lambda_bar_0 = kwargs.get('Lambda_bar_0', np.array([np.sqrt(2)/2, np.sqrt(2)/2, 0, 0]).T)  # quaternion: w, x, y, z
-        self.Lambda_0 = np.array([1, 0, 0, 0]).T  # quaternion: w, x, y, z
-
-        self.Rot_hat = np.matmul(self.Rot, self.rodrigues_formula(self.Lambda_bar_0)) 
-        self.p_hat = kwargs.get('p_hat', np.array([[-2, 4, 3]], dtype=np.float64).T)
-
-        self.p_bar_hat = self.add_bar(self.Rot_hat, self.p_hat)
         self.p_ricatti = kwargs.get('p_ricatti', [1,100])
         self.P_ricatti = np.diag(np.hstack([np.diag(self.p_ricatti[i]*np.eye(3)) for i in range(len(self.p_ricatti))]))
-        
-        if self.quaternion:
-            initial_state = np.concatenate((self.Lambda_0.flatten(), self.Lambda_bar_0.flatten(), self.p_bar_hat.flatten(), self.P_ricatti.flatten()))
-        else:
-            initial_state = np.concatenate((self.Rot.flatten(), self.Rot_hat.flatten(), self.p_bar_hat.flatten(), self.P_ricatti.flatten()))
 
-        self.soly = []
-        self.solt = []
-        self.solimage = []
-        self.solnumlandmark = []
-        self.caltime = []
-        self.soly.append(initial_state)
-        self.current_time = 0
+        self.Lambda_bar_0 = kwargs.get('Lambda_bar_0', np.array([1, 0, 0, 0]).T)  # quaternion: w, x, y, z
+        self.Rot_hat = kwargs.get('Rot_hat', self.rodrigues_formula(self.Lambda_bar_0))
+        self.p_hat = kwargs.get('p_hat', np.array([[0, 0, 0]], dtype=np.float64).T)
+        self.p_bar_hat = self.add_bar(self.Rot_hat, self.p_hat)
+
         self.dt = self.stepsize
-
-        self.show_measurement = True
-        self.i = 0
-
         ################### initialization ###################
         ######################################################
 
-        # self.print_init()
+        self.print_init()
 
     def print_init(self):
         Q_str = '   \n'.join(['                             ' + '  '.join(map(str, row)) for row in self.Q])
@@ -86,22 +63,10 @@ class riccati_observer():
 
         print(f"""
         Parameters
-        use_adaptive           | {self.use_adaptive}
-        quaternion             | {self.quaternion}
-        time                   | {self.time}
         stepsize               | {self.stepsize}
         tol                    | {self.tol}
-        noise                  | {self.noise}
         which_eq               | {self.which_eq}
-        which_omega            | {self.which_omega}
-        with_image_hz_sim      | {self.with_image_hz_sim}
-        image_hz               | {self.image_hz}
-        randomize_image_input  | {self.randomize_image_input}
-        number of landmark     | {self.l}
-        Initial estimate pose  | {self.p_hat.flatten()}
-        Initial estimate ori   | {self.Lambda_bar_0.flatten()}
         k                      | {self.k}
-        z_appear               | {self.z_appear.flatten()}
         Q                      |
     {Q_str}
         V                      |
@@ -301,8 +266,8 @@ class riccati_observer():
     ###############################################################################################################################
         figure, ax = plt.subplots(4,2, figsize=figsize)
         try:
-            ax[0,0].plot(self.solt, np.array(plot_act_p_bar)-np.array(plot_est_p_bar), label=["new x", "new y", "new z"], marker='o', markersize=0.2)
-            ax[0,0].plot(sol_t, np.array(scipy_plot_act_p)-scipy_plot_est_p, label=["standard x", "standard y", "standard z"], linestyle='dotted', marker='o', markersize=0.2)
+            ax[0,0].plot(self.solt, np.array(plot_act_p_bar)-np.array(plot_est_p_bar), label=["ox", "oy", "oz"], marker='o', markersize=0.2)
+            ax[0,0].plot(sol_t, np.array(scipy_plot_act_p)-scipy_plot_est_p, label=["sx", "sy", "sz"], linestyle='dotted', marker='o', markersize=0.2)
             ax[0,0].legend(loc="upper right")
             ax[0,0].set_xlabel("pose error in B frame")
             ax[0,0].grid()
@@ -311,7 +276,7 @@ class riccati_observer():
                 ax[0,0].set_ylim(-0.5, 0.5)
             ax[0,0].minorticks_on()
 
-            ax[0,1].plot(self.solt, np.array(plot_act_p)-np.array(plot_est_p), label=["new x", "new y", "new z"], marker='o', markersize=0.2)
+            ax[0,1].plot(self.solt, np.array(plot_act_p)-np.array(plot_est_p), label=["x", "y", "z"], marker='o', markersize=0.2)
             ax[0,1].legend(loc="upper right")
             ax[0,1].set_xlabel("Pose error in F frame ")
             ax[0,1].grid()
@@ -319,7 +284,7 @@ class riccati_observer():
             ax[0,1].set_ylim(-0.5, 0.5)
             ax[0,1].minorticks_on()
 
-            ax[1,0].plot(self.solt, np.array(plot_act_p), label=["new act x", "new act y", "new act z"], marker='o', markersize=0.2)
+            ax[1,0].plot(self.solt, np.array(plot_act_p), label=["actx", "acty", "actz"], marker='o', markersize=0.2)
             ax[1,0].legend(loc="upper right")
             ax[1,0].set_xlabel("Actual pose in F frame")
             ax[1,0].grid()
@@ -327,7 +292,7 @@ class riccati_observer():
             ax[1,0].set_ylim(-4, 11)
             ax[1,0].minorticks_on()
 
-            ax[1,1].plot(self.solt, np.array(plot_est_p), label=["new est x", "new est y", "new est z"], marker='o', markersize=0.2)
+            ax[1,1].plot(self.solt, np.array(plot_est_p), label=["estx", "esty", "estz"], marker='o', markersize=0.2)
             ax[1,1].legend(loc="upper right")
             ax[1,1].set_xlabel("Estimated pose in F frame")
             ax[1,1].grid()
@@ -335,7 +300,7 @@ class riccati_observer():
             ax[1,1].set_ylim(-4, 11)
             ax[1,1].minorticks_on()
 
-            ax[2,0].plot(self.solt, np.array(plot_err_lambda_bar)[:,0:3], label=["new x", "ny", "z"], marker='o', markersize=0.2)
+            ax[2,0].plot(self.solt, np.array(plot_err_lambda_bar)[:,0:3], label=["x", "y", "z"], marker='o', markersize=0.2)
             ax[2,0].plot(sol_t, np.array(scipy_plot_err_lambda_bar)[:,0:3], label=["sx", "sy", "sz"], linestyle='dotted', marker='o', markersize=0.2)
             ax[2,0].legend(loc="upper right")
             ax[2,0].set_xlabel("Orientation error in B frame")
@@ -410,7 +375,7 @@ class riccati_observer():
                     #q*S(R_hat.T z)
                     first = input_q[landmark_idx]*self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx])))
                     #Pi_d
-                    Pi_d = self.function_Pi(self.function_d(input_R, input_p, np.transpose(input_z[landmark_idx]), with_noise)) #TODO
+                    Pi_d = self.function_Pi(self.function_d(input_R, input_p, np.transpose(input_z[landmark_idx]), with_noise))
                     #(p_bar_hat - R_hat.T x z)
                     second = input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx]))
                     final += np.matmul(first, np.matmul(Pi_d, second))

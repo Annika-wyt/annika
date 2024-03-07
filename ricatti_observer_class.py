@@ -357,10 +357,35 @@ class riccati_observer():
             ax[3,1].grid()
             ax[3,1].set_xlim(0)
             ax[3,1].minorticks_on()
+            param = {'use_adaptive': self.use_adaptive,
+                     'quaternion': self.quaternion,
+                     'time': self.time,
+                     'stepsize': self.stepsize,
+                     'tol': self.tol,
+                     'noise': self.noise,
+                     'which_eq': self.which_eq,
+                     'which_omega': self.which_omega,
+                     'with_image_hz_sim': self.with_image_hz_sim,
+                     'image_hz': self.image_hz,
+                     'randomize_image_input': self.randomize_image_input,
+                     'number of landmark': self.l,
+                     'k': self.k,
+                     'q': self.q[0],
+                     'v': self.v,
+                     'P': self.p_ricatti}
 
+            param_text = "\n".join([f"{k} = {v}" for k, v in param.items()])
+            ax[2,1].xaxis.set_visible(False)
+            ax[2,1].yaxis.set_visible(False)
+            ax[2,1].set_frame_on(False)
+            ax[2,1].text(0.5, 0.5, param_text, fontsize=10, va='center', ha='left',
+              bbox=dict(boxstyle="round", alpha=0.1))
+            plt.tight_layout(pad=2.0)
             plt.show()
         except Exception as e:
             print(e)
+
+        return figure, ax
         ###############################################################################################################################
         ###############################################################################################################################
 

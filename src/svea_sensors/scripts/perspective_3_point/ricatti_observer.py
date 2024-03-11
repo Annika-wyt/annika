@@ -13,7 +13,6 @@ class riccati_observer():
         # for key, value in kwargs.items():
             # setattr(self, key, value)
 
-        self.quaternion = kwargs.get('quaternion', True)
         self.which_eq = kwargs.get('which_eq', 0)
         self.stepsize = kwargs.get('stepsize', 0.1)
         self.tol = kwargs.get('tol', 1e-2 * 3) 
@@ -28,16 +27,19 @@ class riccati_observer():
         # self.use_adaptive = kwargs.get('use_adaptive', True)
         # tol = 1e-2 * 5
         # tol = 0.05
+
+        self.soly = None
+        self.solt = None
         ##################### Parameters #####################
         ######################################################
 
         ######################################################
         ################### initialization ###################
         # landmarks
-        self.z_appear = kwargs.get('z_appear', np.array([]))
+        self.z = kwargs.get('z', np.array([])) # in svea frame
         self.k = kwargs.get('k', 1)
         self.v = kwargs.get('v', [0.1,1])
-        self.l = len(self.z_appear)
+        self.l = len(self.z)
         self.q = kwargs.get('q', 10)
         self.q = self.q * self.l
         self.V = np.diag(np.hstack([np.diag(self.v[i]*np.eye(3)) for i in range(len(self.v))]))
@@ -49,6 +51,11 @@ class riccati_observer():
         self.Rot_hat = kwargs.get('Rot_hat', self.rodrigues_formula(self.Lambda_bar_0))
         self.p_hat = kwargs.get('p_hat', np.array([[0, 0, 0]], dtype=np.float64).T)
         self.p_bar_hat = self.add_bar(self.Rot_hat, self.p_hat)
+
+        self.linearVelocity = None
+        self.angularVelocity = None
+        self.current_time = 0
+        self.running_rk45 = False
 
         self.dt = self.stepsize
         ################### initialization ###################
@@ -74,6 +81,18 @@ class riccati_observer():
         P ricatti              |
     {P_ricatti_str}
         """)
+
+    def update_z(self, landmark):
+        if not self.running_rk45:
+            self.z_appear = landmark
+
+    def update_linear_velocity(self, linear_velocity):
+        if not self.running_rk45:
+            self.linearVelocity = linear_velocity
+
+    def update_angular_velocity(self, angular_velocity):
+        if not self.running_rk45:
+            self.angularVelocity = angular_velocity
 
     def function_S(self, input):
         '''
@@ -146,16 +165,18 @@ class riccati_observer():
             dir = (np.sign(dir[2])/ demon) * np.array([[d1_d3, d2_d3, 1]]).T
         return dir
 
-    def function_C(self, input_R, input_R_hat, input_p, input_z, with_noise, num_landmarks):
+    def function_C(self, input_R_hat):
         '''
         Create the C maxtrix 
         Input = ...
         Output = num_landmark*3x6 matrix
         '''
-        for landmark_idx in range(num_landmarks):
+        for landmark_idx in range(self.l):
             # S(R_hat.T x z)
-            first = self.function_Pi(self.function_d(input_R, input_p, np.transpose(input_z[landmark_idx]), with_noise))
-            second = self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx])))
+            d = np.transpose(self.z[landmark_idx])/ np.linalg.norm(self.z[landmark_idx])
+            first = self.function_Pi(d)
+            # first = self.function_Pi(self.function_d(input_R, input_p, np.transpose(self.z[landmark_idx])))
+            second = self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx]))) #TODO
             final = -np.matmul(first, second)
             C_landmark = np.hstack((final, first))
             if landmark_idx == 0:
@@ -358,80 +379,83 @@ class riccati_observer():
         ###############################################################################################################################
         ###############################################################################################################################
 
-    def observer_equations(self, input_omega, input_p_bar_hat, input_R, input_v, num_landmarks, input_q, input_R_hat, input_z, input_p, with_noise, input_k, input_P, which_eq):
-        if which_eq == 0:
+    def observer_equations(self, input_p_bar_hat, input_R, input_R_hat, input_p, input_P):
+        # self.observer_equations(input_p_bar_hat, input_R, input_R_hat, input_p, input_P)
+        if self.which_eq == 0:
             # omega
-            first_upper = input_omega
+            first_upper = self.angularVelocity #TODO: make sure is not dependent on frame, tho it shouldnt  
             
             # -S(omega)p_bat_hat + v_bar
-            first_lower = -np.matmul(self.function_S(input_omega), input_p_bar_hat) + self.add_bar(input_R, input_v)
+            #TODO: remove function_S
+            first_lower = -np.matmul(self.function_S(self.angularVelocity), input_p_bar_hat) + self.linearVelocity
             first_part = np.vstack((first_upper, first_lower))
 
             # omega_hat second part upper
-            if not input_z.any() == None:
+            if not self.z.any() == None:
                 final = np.transpose(np.array([[0, 0, 0]], dtype=np.float64))
                 final2 = np.transpose(np.array([[0, 0, 0]], dtype=np.float64))
-                for landmark_idx in range(num_landmarks):
-                    #q*S(R_hat.T z)
-                    first = input_q[landmark_idx]*self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx])))
+                for landmark_idx in range(self.l):
+                    #R_hat.T z
+                    first = np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx]))
                     #Pi_d
-                    Pi_d = self.function_Pi(self.function_d(input_R, input_p, np.transpose(input_z[landmark_idx]), with_noise))
+                    d = np.transpose(self.z[landmark_idx])/ np.linalg.norm(self.z[landmark_idx])
+                    Pi_d = self.function_Pi(d) #TODO
                     #(p_bar_hat - R_hat.T x z)
-                    second = input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx]))
-                    final += np.matmul(first, np.matmul(Pi_d, second))
+                    second = input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx]))
+                    # q*
+                    final += self.q[landmark_idx]*np.matmul(np.transpose(np.cross(np.transpose(first), Pi_d)), second)
 
                     # omega_hat second part lower
                     #q*Pi_d
-                    first = input_q[landmark_idx]*Pi_d
                     #(p_bar_hat - R_hat.T x z)
                     # second = input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx]))
-                    final2 += np.matmul(first, second)
+                    final2 += self.q[landmark_idx]*np.matmul(Pi_d, second)
 
                 second_part = np.vstack((final, final2))
                 #kP[]
                 #full second part 
-                second_part = input_k*np.matmul(input_P, second_part)
+                second_part = self.k*np.matmul(input_P, second_part)
 
                 # Final
                 output_omega_hat_p_bar_hat_dot = first_part - second_part
             else:
                 output_omega_hat_p_bar_hat_dot = first_part
             
-        elif which_eq == 1:
+        elif self.which_eq == 1:
             print("NO EQUATION 1")
 
-        elif which_eq == 2:
+        elif self.which_eq == 2:
             ### First part ###
             # omega hat
-            first_upper = input_omega
+            first_upper = self.angularVelocity
 
             # -S(w)p_bar_hat + v_bar
-            first_lower = -np.matmul(self.function_S(input_omega), input_p_bar_hat) + self.add_bar(input_R, input_v)
+            first_lower = -np.matmul(self.function_S(self.angularVelocity), input_p_bar_hat) + self.add_bar(input_R, self.linearVelocity)
             # first part final
             first_part = np.vstack((first_upper, first_lower))
 
-            if not input_z.any() == None:
+            if not self.z.any() == None:
                 ### Second part ###
                 # omega hat
                 final = np.transpose(np.array([[0, 0, 0]], dtype=np.float64))
                 final2 = np.transpose(np.array([[0, 0, 0]], dtype=np.float64))
-                for landmark_idx in range(num_landmarks):
-                    d_bar_hat = (input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx])))/ np.linalg.norm(input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx])))
+                for landmark_idx in range(self.l):
+                    d_bar_hat = (input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx])))/ np.linalg.norm(input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx])))
                     Pi_d_bar_hat = self.function_Pi(d_bar_hat)
                     # q S(R_hat.T z) Pi_d_bar_hat 
-                    first = input_q[landmark_idx]*np.matmul(self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx]))), Pi_d_bar_hat)
+                    first = self.q[landmark_idx]*np.matmul(self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx]))), Pi_d_bar_hat)
                     # |p_bar_hat - R_hat.T z| di
-                    second = np.linalg.norm(input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx])))*self.function_d(input_R, input_p, np.transpose(input_z[landmark_idx]), with_noise)
+                    second = np.linalg.norm(input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx])))*self.function_d(input_R, input_p, np.transpose(self.z[landmark_idx]))
                     final += np.matmul(first, second)
 
                     # q Pi_d_bar_hat
-                    first = input_q[landmark_idx]*Pi_d_bar_hat
+                    first = self.q[landmark_idx]*Pi_d_bar_hat
                     # |p_bar_hat - R_hat.T z| di
                     #second 
                     final2 += np.matmul(first, second)
 
                 second_part = np.vstack((final, final2))
-                second_part = input_k*np.matmul(input_P, second_part)
+                second_part = self.k*np.matmul(input_P, second_part)
 
                 output_omega_hat_p_bar_hat_dot = first_part + second_part
             else:
@@ -439,64 +463,42 @@ class riccati_observer():
 
         return output_omega_hat_p_bar_hat_dot
 
-    def dynamics(self, t, y, input_k, input_z, input_q, input_Q, input_V, with_noise, num_landmarks, which_eq, quaternion, which_omega):
+    def dynamics(self, t, y):
         # pose
         input_p = np.transpose(np.array([[2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10]]))
 
         ####################################
         ########### Measurements ###########
-        if with_noise:
-            b_v = np.random.normal(0, 0.1, 1)
-            b_omega = np.random.normal(0, 0.01, 1)
-            # velocity
-            input_v = np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]])) + b_v
-            # angular velocity
-            if which_omega == "z":
-                input_omega = np.transpose(np.array([[0 ,0 , 0.6*t]])) + b_omega
-            elif which_omega == "full":
-                input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]])) + b_omega
-        else:
-            # velocity
-            input_v = np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]]))
-            # angular velocity
-            if which_omega == "z":
-                input_omega = np.transpose(np.array([[0, 0, 0.6*t]]))
-            elif which_omega == "full":
-                input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]]))
+        # Linear Velocity
+        # input_v = self.linearVelocity
+        # Angular Velocity
+        # input_omega = self.angularVelocity
         ########### Measurements ###########
         ####################################
 
-        if quaternion:
-            ####################################
-            ############ Quaternion ############
-            qua_flat, qua_hat_flat, p_bar_hat_flat, input_P_flat = np.split(y, [4, 8, 11])
-            qua_flat = qua_flat/np.linalg.norm(qua_flat)
-            qua_hat_flat = qua_hat_flat/np.linalg.norm(qua_hat_flat)
-            input_R = self.rodrigues_formula(qua_flat)
-            input_R_hat = self.rodrigues_formula(qua_hat_flat)
+        ####################################
+        ############ Quaternion ############
+        qua_flat, qua_hat_flat, p_bar_hat_flat, input_P_flat = np.split(y, [4, 8, 11])
+        qua_flat = qua_flat/np.linalg.norm(qua_flat)
+        qua_hat_flat = qua_hat_flat/np.linalg.norm(qua_hat_flat)
+        input_R = self.rodrigues_formula(qua_flat)
+        input_R_hat = self.rodrigues_formula(qua_hat_flat)
         ############ Quaternion ############
         ####################################
-        else:
-            ####################################
-            ######### Rotation Matrix ##########
-            Rot_flat, Rot_hat_flat, p_bar_hat_flat, input_P_flat = np.split(y, [9, 18, 21])
-            input_R = Rot_flat.reshape((3,3))
-            input_R_hat = Rot_hat_flat.reshape((3,3))
-            ######### Rotation Matrix ##########
-            ####################################
-        
+
+        # (self.k, z, self.q, self.Q, self.V, self.l)
+
         input_p_bar_hat = p_bar_hat_flat.reshape((3,1))
         input_P = input_P_flat.reshape((6,6))
 
-        input_A = self.function_A(input_omega)
-        if not input_z.any() == None:
-            input_C = self.function_C(input_R, input_R_hat, input_p, input_z, with_noise, num_landmarks)
+        input_A = self.function_A(self.angularVelocity)
+        if not self.z.any() == None:
+            input_C = self.function_C(input_R_hat)
         ####################################
 
         ####################################
         ############# Observer #############
-        output_omega_hat_p_bar_hat_dot = self.observer_equations(input_omega, input_p_bar_hat, input_R, input_v, num_landmarks, input_q, input_R_hat, input_z, input_p, with_noise, input_k, input_P, which_eq)
-        # output_omega_hat_p_bar_hat_dot[:2,:] = 0.0
+        output_omega_hat_p_bar_hat_dot = self.observer_equations(input_p_bar_hat, input_R, input_R_hat, input_p, input_P)
         ############# Observer #############
         ####################################
         
@@ -507,38 +509,27 @@ class riccati_observer():
 
         p_bar_hat_dot = output_omega_hat_p_bar_hat_dot[3:]
 
-        if quaternion:
-            ####################################
-            ############ Quaternion ############
-            omega_hat = output_omega_hat_p_bar_hat_dot[0:3].flatten()
-            omega_hat_4x4 = np.array([[0, -omega_hat[0], -omega_hat[1], -omega_hat[2]],
-                                    [omega_hat[0], 0, omega_hat[2], -omega_hat[1]],
-                                    [omega_hat[1], -omega_hat[2], 0, omega_hat[0]],
-                                    [omega_hat[2], omega_hat[1], -omega_hat[0], 0]])
+        ####################################
+        ############ Quaternion ############
+        omega_hat = output_omega_hat_p_bar_hat_dot[0:3].flatten()
+        omega_hat_4x4 = np.array([[0, -omega_hat[0], -omega_hat[1], -omega_hat[2]],
+                                [omega_hat[0], 0, omega_hat[2], -omega_hat[1]],
+                                [omega_hat[1], -omega_hat[2], 0, omega_hat[0]],
+                                [omega_hat[2], omega_hat[1], -omega_hat[0], 0]])
 
-            output_qua_hat_flat = 0.5*np.matmul(omega_hat_4x4, qua_hat_flat)
-            input_omega = input_omega.flatten()
-            omega_4x4 = np.array([[0, -input_omega[0], -input_omega[1], -input_omega[2]],
-                                    [input_omega[0], 0, input_omega[2], -input_omega[1]],
-                                    [input_omega[1], -input_omega[2], 0, input_omega[0]],
-                                    [input_omega[2], input_omega[1], -input_omega[0], 0]])
-            output_qua_flat = 0.5*np.matmul(omega_4x4, qua_flat)
-            return np.concatenate((output_qua_flat, output_qua_hat_flat, p_bar_hat_dot.flatten(), output_P_dot.flatten()))
-            ########### Quaternion ############
-            ####################################
-        else:
-            ####################################
-            ######### Rotation Matrix ##########
-            omega_hat = output_omega_hat_p_bar_hat_dot[0:3]
-            output_R_hat_dot = np.matmul(input_R_hat, self.function_S(omega_hat))
-            output_R = np.matmul(input_R, self.function_S(input_omega))
+        output_qua_hat_flat = 0.5*np.matmul(omega_hat_4x4, qua_hat_flat)
+        input_omega = input_omega.flatten()
+        omega_4x4 = np.array([[0, -input_omega[0], -input_omega[1], -input_omega[2]],
+                                [input_omega[0], 0, input_omega[2], -input_omega[1]],
+                                [input_omega[1], -input_omega[2], 0, input_omega[0]],
+                                [input_omega[2], input_omega[1], -input_omega[0], 0]])
+        output_qua_flat = 0.5*np.matmul(omega_4x4, qua_flat)
+        return np.concatenate((output_qua_flat, output_qua_hat_flat, p_bar_hat_dot.flatten(), output_P_dot.flatten()))
+        ########### Quaternion ############
+        ####################################
 
-            # (Rot.flatten(), Rot_hat.flatten(), p_bar_hat.flatten(), P_ricatti.flatten())
-            return np.concatenate((output_R.flatten(), output_R_hat_dot.flatten(), p_bar_hat_dot.flatten(), output_P_dot.flatten()))
-            ######### Rotation Matrix ##########
-            ####################################
-
-    def rk45_step(self, t, y, dt, args, tol, adaptive):
+    def rk45_step(self):
+        self.running_rk45 = True
         a2, a3, a4, a5, a6 = 1/5, 3/10, 4/5, 8/9, 1
         b21 = 1/5
         b31, b32 = 3/40, 9/40
@@ -549,36 +540,30 @@ class riccati_observer():
 
         c1_4, c3_4, c4_4, c5_4, c6_4 = 5179/57600, 7571/16695, 393/640, -92097/339200, 187/2100
         # Runge-Kutta stages
-        k1 = self.dynamics(t, y, *args)
-        k2 = self.dynamics(t + a2*dt, y + dt*b21*k1, *args)
-        k3 = self.dynamics(t + a3*dt, y + dt*(b31*k1 + b32*k2), *args)
-        k4 = self.dynamics(t + a4*dt, y + dt*(b41*k1 + b42*k2 + b43*k3), *args)
-        k5 = self.dynamics(t + a5*dt, y + dt*(b51*k1 + b52*k2 + b53*k3 + b54*k4), *args)
-        k6 = self.dynamics(t + a6*dt, y + dt*(b61*k1 + b62*k2 + b63*k3 + b64*k4 + b65*k5), *args)
-
+        k1 = self.dynamics(self.current_time, self.soly)
+        k2 = self.dynamics(self.current_time + a2*self.dt, self.soly + self.dt*b21*k1)
+        k3 = self.dynamics(self.current_time + a3*self.dt, self.soly + self.dt*(b31*k1 + b32*k2))
+        k4 = self.dynamics(self.current_time + a4*self.dt, self.soly + self.dt*(b41*k1 + b42*k2 + b43*k3))
+        k5 = self.dynamics(self.current_time + a5*self.dt, self.soly + self.dt*(b51*k1 + b52*k2 + b53*k3 + b54*k4))
+        k6 = self.dynamics(self.current_time + a6*self.dt, self.soly + self.dt*(b61*k1 + b62*k2 + b63*k3 + b64*k4 + b65*k5))
+        self.running_rk45 = False
         # Update step
-        y_next = y + dt*(c1*k1 + c2*k2 + c3*k3 + c4*k4 + c5*k5 + c6*k6)
+        y_next = self.soly + dt*(c1*k1 + c2*k2 + c3*k3 + c4*k4 + c5*k5 + c6*k6)
+        y_next_4 = self.soly + dt * (c1_4*k1 + c3_4*k3 + c4_4*k4 + c5_4*k5 + c6_4*k6)
 
-        if adaptive:
-            y_next_4 = y + dt * (c1_4*k1 + c3_4*k3 + c4_4*k4 + c5_4*k5 + c6_4*k6)
+        error = np.abs(y_next - y_next_4)
+        error_norm = np.linalg.norm(error)
+        safety_factor = 0.9
+        min_scale_factor = 0.2
+        max_scale_factor = 40.0
+        if error_norm <= self.tol:
+            success = True
+            t = t+dt
+            dt = dt * min(max_scale_factor, max(min_scale_factor, safety_factor * (self.tol / error_norm)**0.25))
+        else:
+            success = False
+            dt = dt * max(min_scale_factor, safety_factor * (self.tol / error_norm)**0.25)
 
-            error = np.abs(y_next - y_next_4)
-            error_norm = np.linalg.norm(error)
-            safety_factor = 0.9
-            min_scale_factor = 0.2
-            max_scale_factor = 40.0
-            if error_norm <= tol:
-                success = True
-                t = t+dt
-                dt = dt * min(max_scale_factor, max(min_scale_factor, safety_factor * (tol / error_norm)**0.25))
-            else:
-                success = False
-                dt = dt * max(min_scale_factor, safety_factor * (tol / error_norm)**0.25)
-        else: 
-            if np.isnan(y_next).any():
-                success = False
-            else:
-                success = True
         return y_next, t, dt, success
 
     def step_simulation(self):
@@ -587,131 +572,23 @@ class riccati_observer():
         ####################### Solver #######################
         success = False
         while not success:
-            if self.with_image_hz_sim:
-                # show_measurement = any(abs(current_time - t)/(t+1e-10) <= threshold_image for t in image_time)
-                self.show_measurement = np.round(self.current_time, decimals=2) == np.round(self.image_time[min(self.i, len(self.image_time)-1)], decimals=2)
-                if self.show_measurement:
-                    if self.randomize_image_input:
-                        l = np.random.rand(len(self.z_appear),1)
-                        l = l/np.linalg.norm(l)
-                        l = np.rint(l).astype(int)
-                        z = self.z_appear[l[:, 0] == 1]
-                        self.l = np.sum(l)
-                        self.q = self.q * l
-                        self.Q = np.diag(np.hstack([np.diag(self.q[aa]*np.eye(3)) for aa in range(l)]))
-                    else:
-                        self.l = len(self.z_appear)
-                        z = self.z_appear
-                else:
-                    self.l = 0
-                    z = np.array([None])
-            else:
-                z = self.z_appear
-
-            args = (self.k, z, self.q, self.Q, self.V, self.noise, self.l, self.which_eq, self.quaternion, self.which_omega)
-            y_next, next_time, new_dt, success = self.rk45_step(self.current_time, self.soly[-1], self.dt, args, self.tol, self.use_adaptive)
-            if self.use_adaptive:
-                if success:
-                    self.soly.append(y_next)
-                    self.solt.append(self.current_time)
-                    self.solimage.append([self.current_time, self.show_measurement])
-                    self.solnumlandmark.append(self.l)
-                    end_time = systemtime.time()
-                    # self.caltime.append(end_time - start_time)
-                    # start_time = end_time
-                    if self.with_image_hz_sim:
-                        if self.show_measurement:
-                            self.i += 1
-                        if next_time + new_dt < self.image_time[min(self.i, len(self.image_time)-1)]:
-                            self.dt = new_dt if new_dt != 0 else min(self.stepsize, 1/self.image_hz)
-                        else:
-                            self.dt = abs(self.image_time[min(self.i, len(self.image_time)-1)] - next_time)
-                    else:
-                        self.dt = new_dt
-                    self.current_time = next_time
-                else:
-                    self.dt = new_dt
-            else:
-                if success:
-                    self.soly.append(y_next)
-                    self.solt.append(self.current_time)
-                    end_time = systemtime.time()
-                    # self.caltime.append(end_time - start_time)
-                    # start_time = end_time
-                    self.current_time += self.dt
-
+            self.l = len(self.z)
+            z = self.z
+            self.soly = np.concatenate((self.Lambda_bar_0.flatten(), self.p_bar_hat.flatten(), self.P_ricatti.flatten()))
+            # args = (self.k, z, self.q, self.Q, self.V, self.l)
+            # y_next, next_time, new_dt, success = self.rk45_step(self.current_time, self.soly[-1], self.dt, args, self.tol, self.use_adaptive)
+            
+            y_next, next_time, new_dt, success = self.rk45_step()
+            if success:
+                self.soly = y_next
+                self.solt = self.current_time
+                # self.solimage.append([self.current_time, self.show_measurement])
+                # self.solnumlandmark.append(self.l)
+                # end_time = systemtime.time()
+                # self.caltime.append(end_time - start_time)
+                # start_time = end_time
+                self.current_time = next_time
+            self.dt = new_dt
             ####################### Solver #######################
             ######################################################
         return (self.solt[-1], self.dt, self.soly[-1])
-
-    def full_simulation(self):
-        ### Run solver
-        ######################################################
-        ####################### Solver #######################
-        start_time = systemtime.time()
-        run_time = systemtime.time()
-        while self.current_time <= self.time[1]:
-            # print(f"Simulation time: {current_time} Run time: {systemtime.time()-run_time}", end='\r', flush=True) 
-            simulation_time_str = f"Simulation time: {self.current_time}"
-            print(f"{simulation_time_str}{' ' * (40 - len(simulation_time_str))}Run time: {systemtime.time()-run_time}", end='\r', flush=True)
-            if self.with_image_hz_sim:
-                # show_measurement = any(abs(current_time - t)/(t+1e-10) <= threshold_image for t in image_time)
-                self.show_measurement = np.round(self.current_time, decimals=2) == np.round(self.image_time[min(self.i, len(self.image_time)-1)], decimals=2)
-                if self.show_measurement:
-                    if self.randomize_image_input:
-                        l = np.random.rand(len(self.z_appear),1)
-                        l = l/np.linalg.norm(l)
-                        l = np.rint(l).astype(int)
-                        z = self.z_appear[l[:, 0] == 1]
-                        self.l = np.sum(l)
-                        self.q = self.q * l
-                        self.Q = np.diag(np.hstack([np.diag(self.q[aa]*np.eye(3)) for aa in range(l)]))
-                    else:
-                        self.l = len(self.z_appear)
-                        z = self.z_appear
-                else:
-                    self.l = 0
-                    z = np.array([None])
-            else:
-                z = self.z_appear
-
-            args = (self.k, z, self.q, self.Q, self.V, self.noise, self.l, self.which_eq, self.quaternion, self.which_omega)
-            y_next, next_time, new_dt, success = self.rk45_step(self.current_time, self.soly[-1], self.dt, args, self.tol, self.use_adaptive)
-            if self.use_adaptive:
-                if success:
-                    self.soly.append(y_next)
-                    self.solt.append(self.current_time)
-                    self.solimage.append([self.current_time, self.show_measurement])
-                    self.solnumlandmark.append(self.l)
-                    end_time = systemtime.time()
-                    self.caltime.append(end_time - start_time)
-                    start_time = end_time
-                    if next_time >= self.time[1]:
-                        break
-                    if self.with_image_hz_sim:
-                        if self.show_measurement:
-                            self.i += 1
-                        if next_time + new_dt < self.image_time[min(self.i, len(self.image_time)-1)]:
-                            self.dt = new_dt if new_dt != 0 else min(self.stepsize, 1/self.image_hz)
-                        else:
-                            self.dt = abs(self.image_time[min(self.i, len(self.image_time)-1)] - next_time)
-                    else:
-                        self.dt = new_dt
-                    self.current_time = next_time
-                else:
-                    self.dt = new_dt
-            else:
-                if success:
-                    self.soly.append(y_next)
-                    self.solt.append(self.current_time)
-                    end_time = systemtime.time()
-                    self.caltime.append(end_time - start_time)
-                    start_time = end_time
-                    self.current_time += self.dt
-                else:
-                    print(self.current_time, len(self.soly))
-                    break
-
-        ####################### Solver #######################
-        ######################################################
-        print('\n')

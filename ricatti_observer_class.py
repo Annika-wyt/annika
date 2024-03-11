@@ -357,7 +357,7 @@ class riccati_observer():
             ax[3,1].plot(self.solt[:-1], dttemp, color="blue", alpha=0.8, label="dt between each timestep")
             ax[3,1].plot(self.solt, self.caltime, color="orange", alpha=0.8, label="cal time")
             ax[3,1].legend(loc="upper right")
-            ax[3,1].set_xlabel("number of landmark")
+            ax[3,1].set_xlabel("time")
             ax[3,1].grid()
             ax[3,1].set_xlim(0)
             ax[3,1].minorticks_on()

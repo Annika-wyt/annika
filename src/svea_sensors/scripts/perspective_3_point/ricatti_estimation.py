@@ -27,9 +27,7 @@ class ricatti_estimation():
         sync = ApproximateTimeSynchronizer([Twist, Landmark], queue_size=1, slop=0.1)
         sync.registerCallback(self.TwistAndLandmarkCallback)
 
-
         ## Sub to state
-
         ################# Subscriber #################
         ##############################################
 
@@ -45,16 +43,14 @@ class ricatti_estimation():
 
         ##############################################
         ################# Parameters #################
-
         k = rospy.get_param("~k", 1)
         q = rospy.get_param("~q", 10)
         v1 = rospy.get_param("~v1", 0.1)
         v2 = rospy.get_param("~v2", 1)
-
-
+        estpose = rospy.get_param("~estpose", np.array([0, 0, 0]))
+        estori = rospy.get_param("~estori", np.array([1, 0, 0, 0]))
         ################# Parameters #################
         ##############################################
-
         self.riccati_obj = riccati_observer(
         use_adaptive            = True,
         quaternion              = True,
@@ -67,8 +63,8 @@ class ricatti_estimation():
         # with_image_hz_sim       = False,
         # image_hz                = 60, 
         # randomize_image_input   = False,
-        p_hat                   = # sth from state or just input from lanuch file,
-        Lambda_bar_0            = # sth from state or just input from lanuch file,  # quaternion: w, x, y, z
+        p_hat                   = estpose, # sth from state or just input from lanuch file,
+        Lambda_bar_0            = estori, # sth from state or just input from lanuch file,  # quaternion: w, x, y, z
         z_appear                = np.array([]),
         k                       = k,
         q                       = [q], 
@@ -94,7 +90,6 @@ class ricatti_estimation():
 
     def run(self):
         rospy.spin()
-
 
 if __name__ == '__main__':
     ricatti_estimation().run()

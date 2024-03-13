@@ -77,7 +77,7 @@ class riccati_observer():
         ################### initialization ###################
         ######################################################
 
-        # self.print_init()
+        self.print_init()
 
     def print_init(self):
         Q_str = '   \n'.join(['                             ' + '  '.join(map(str, row)) for row in self.Q])
@@ -237,7 +237,8 @@ class riccati_observer():
                 own_sol_R = solution[:9]
                 own_sol_est_R = solution[9:18]
                 own_sol_est_p_bar = solution[18:21]
-            p = np.array([2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10])
+            p = np.array([5, 0, 10])
+            # p = np.array([2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10])
             p_bar_temp = np.matmul(np.transpose(np.array(own_sol_R).reshape((3,3))), p)
             p_temp = np.matmul(np.array(own_sol_est_R).reshape((3,3)), own_sol_est_p_bar)
 
@@ -401,7 +402,6 @@ class riccati_observer():
             # -S(omega)p_bat_hat + v_bar
             first_lower = -np.matmul(self.function_S(input_omega), input_p_bar_hat) + self.add_bar(input_R, input_v)
             first_part = np.vstack((first_upper, first_lower))
-
             # omega_hat second part upper
             if not input_z.any() == None:
                 final = np.transpose(np.array([[0, 0, 0]], dtype=np.float64))
@@ -414,14 +414,12 @@ class riccati_observer():
                     #(p_bar_hat - R_hat.T x z)
                     second = input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx]))
                     final += np.matmul(first, np.matmul(Pi_d, second))
-
                     # omega_hat second part lower
                     #q*Pi_d
                     first = input_q[landmark_idx]*Pi_d
                     #(p_bar_hat - R_hat.T x z)
                     # second = input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx]))
                     final2 += np.matmul(first, second)
-
                 second_part = np.vstack((final, final2))
                 #kP[]
                 #full second part 
@@ -476,28 +474,33 @@ class riccati_observer():
 
     def dynamics(self, t, y, input_k, input_z, input_q, input_Q, input_V, with_noise, num_landmarks, which_eq, quaternion, which_omega):
         # pose
-        input_p = np.transpose(np.array([[2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10]]))
-
+        input_p = np.transpose(np.array([[5, 0, 10]]))
+        # input_p = np.transpose(np.array([[2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10]]))
+    
         ####################################
         ########### Measurements ###########
         if with_noise:
             b_v = np.random.normal(0, 0.1, 1)
             b_omega = np.random.normal(0, 0.01, 1)
             # velocity
-            input_v = np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]])) + b_v
+            input_v = np.transpose(np.array([[-np.sin(0.4*0), np.cos(0.4*0), 0]])) + b_v
             # angular velocity
             if which_omega == "z":
-                input_omega = np.transpose(np.array([[0 ,0 , 0.6*t]])) + b_omega
+                pass
+                # input_omega = np.transpose(np.array([[0 ,0 , 0.6*t]])) + b_omega
             elif which_omega == "full":
-                input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]])) + b_omega
+                pass
+                # input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]])) + b_omega
         else:
             # velocity
-            input_v = np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]]))
+            input_v = np.transpose(np.array([[0, 0, 0]])) #np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]]))
             # angular velocity
             if which_omega == "z":
-                input_omega = np.transpose(np.array([[0, 0, 0.6*t]]))
+                # input_omega = np.transpose(np.array([[0, 0, 0.6*0]]))
+                pass
             elif which_omega == "full":
-                input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]]))
+                input_omega = np.transpose(np.array([[0, 0, 0]]))
+                # input_omega = np.transpose(np.array([[0.1*np.sin(0), 0.4*np.cos(2*0), 0.6*0]]))
         ########### Measurements ###########
         ####################################
 
@@ -537,6 +540,10 @@ class riccati_observer():
         
         if not input_z.any() == None:
             output_P_dot = np.matmul(input_A, input_P) + np.matmul(input_P, np.transpose(input_A)) - np.matmul(input_P, np.matmul(np.transpose(input_C), np.matmul(input_Q, np.matmul(input_C, input_P)))) + input_V
+            # print("CP", np.matmul(input_C, input_P))
+            # print("QCP", np.matmul(input_Q, np.matmul(input_C, input_P)))
+            # print("CQCP", np.matmul(np.transpose(input_C), np.matmul(input_Q, np.matmul(input_C, input_P))))
+            # print("PCQCP", np.matmul(input_P, np.matmul(np.transpose(input_C), np.matmul(input_Q, np.matmul(input_C, input_P)))))
         else:
             output_P_dot = np.matmul(input_A, input_P) + np.matmul(input_P, np.transpose(input_A)) + input_V
 
@@ -677,6 +684,9 @@ class riccati_observer():
 
             ####################### Solver #######################
             ######################################################
+        print("t", self.solt[-1])
+        print("soly qua", self.soly[-1][4:8])
+        print("soly pos", self.soly[-1][8:11])
         return (self.solt[-1], self.dt, self.soly[-1])
 
     def full_simulation(self):

@@ -17,3 +17,4 @@ site/
 *.bag
 
 simulated_result/
+result/

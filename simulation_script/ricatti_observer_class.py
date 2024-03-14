@@ -251,7 +251,8 @@ class riccati_observer():
         scipy_plot_act_p = []
 
         for t, rotation, p_bar_hat in zip(sol_t, sol_R, sol_est_p_bar):
-            p = np.array([2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10])
+            p = np.array([5, 0, 10])
+            # p = np.array([2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10])
             rotation = self.rodrigues_formula(rotation)
             p_temp = np.matmul(np.transpose(np.array(rotation).reshape((3,3))), p)
             scipy_plot_est_p.append(p_bar_hat.tolist())
@@ -303,7 +304,7 @@ class riccati_observer():
         figure, ax = plt.subplots(4,2, figsize=figsize)
         try:
             ax[0,0].plot(self.solt, np.array(plot_act_p_bar)-np.array(plot_est_p_bar), label=["new x", "new y", "new z"], marker='o', markersize=0.2)
-            ax[0,0].plot(sol_t, np.array(scipy_plot_act_p)-scipy_plot_est_p, label=["standard x", "standard y", "standard z"], linestyle='dotted', marker='o', markersize=0.2)
+            # ax[0,0].plot(sol_t, np.array(scipy_plot_act_p)-scipy_plot_est_p, label=["standard x", "standard y", "standard z"], linestyle='dotted', marker='o', markersize=0.2)
             ax[0,0].legend(loc="upper right")
             ax[0,0].set_xlabel("pose error in B frame")
             ax[0,0].grid()
@@ -337,7 +338,7 @@ class riccati_observer():
             ax[1,1].minorticks_on()
 
             ax[2,0].plot(self.solt, np.array(plot_err_lambda_bar)[:,0:3], label=["new x", "ny", "z"], marker='o', markersize=0.2)
-            ax[2,0].plot(sol_t, np.array(scipy_plot_err_lambda_bar)[:,0:3], label=["sx", "sy", "sz"], linestyle='dotted', marker='o', markersize=0.2)
+            # ax[2,0].plot(sol_t, np.array(scipy_plot_err_lambda_bar)[:,0:3], label=["sx", "sy", "sz"], linestyle='dotted', marker='o', markersize=0.2)
             ax[2,0].legend(loc="upper right")
             ax[2,0].set_xlabel("Orientation error in B frame")
             ax[2,0].grid()
@@ -493,13 +494,13 @@ class riccati_observer():
                 # input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]])) + b_omega
         else:
             # velocity
-            input_v = np.transpose(np.array([[0, 0, 0]])) #np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]]))
+            input_v = np.transpose(np.array([[0.1, 0, 0]])) #np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]]))
             # angular velocity
             if which_omega == "z":
                 # input_omega = np.transpose(np.array([[0, 0, 0.6*0]]))
                 pass
             elif which_omega == "full":
-                input_omega = np.transpose(np.array([[0, 0, 0]]))
+                input_omega = np.transpose(np.array([[0, 0, 0.3]]))
                 # input_omega = np.transpose(np.array([[0.1*np.sin(0), 0.4*np.cos(2*0), 0.6*0]]))
         ########### Measurements ###########
         ####################################

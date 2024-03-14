@@ -6,7 +6,7 @@ class riccati_observer():
     def __init__(self, **kwargs):
         ######################################################
         ##################### Parameters #####################
-        self.z_groundtruth = np.array([])
+        self.z_estFrame = np.array([])
         # for key, value in kwargs.items():
             # setattr(self, key, value)
 
@@ -88,9 +88,9 @@ class riccati_observer():
             self.l = len(self.z)
             self.Q = np.diag(np.hstack([np.diag(self.q*np.eye(3)) for i in range(self.l)])) if self.l != 0 else np.array([])
 
-    def update_z_groundtruth(self, landmarkGroundtruth):
+    def update_z_estFrame(self, landmarkGroundtruth):
         if not self.running_rk45:
-            self.z_groundtruth = landmarkGroundtruth
+            self.z_estFrame = landmarkGroundtruth
 
     def update_linear_velocity(self, linear_velocity):
         if not self.running_rk45:
@@ -142,7 +142,7 @@ class riccati_observer():
         '''
         return np.eye(3) - np.outer(input, input)
 
-    def function_d(self, input_rot, input_p, input_z, with_noise):
+    def function_d(self, input_rot, input_p, input_z):
         '''
         Calculate direction d_i(t) := R^T(t)(p(t) - z_i)/|p(t)-z_i|
         Input:
@@ -155,36 +155,23 @@ class riccati_observer():
         '''
         norm = (input_p - input_z)/np.linalg.norm(input_p - input_z)
         dir = np.matmul(np.transpose(input_rot), norm)
-        
-        if with_noise:
-            '''
-            calculate noisy d = sign(d_{i,3}) / demon (d_{i,1}/d_{i,3} + n_{n,1}, d_{i,2}/d_{i,3} + n_{i,2}, 1).T
-            demon = sqrt((d_{i,1}/d_{i,3} + n_{n,1})^2 + (d_{i,2}/d_{i,3} + n_{i,2})^2 + 1)
-            '''
-            dir = dir.flatten()
-            n_1 = np.random.uniform(-0.005, 0.005, 1)[0]
-            n_2 = np.random.uniform(-0.005, 0.005, 1)[0]
-            d1_d3 = dir[0]/dir[2] + n_1
-            d2_d3 = dir[1]/dir[2] + n_2
-            demon = np.sqrt(d1_d3**2 + d2_d3**2 + 1)
-            dir = (np.sign(dir[2])/ demon) * np.array([[d1_d3, d2_d3, 1]]).T
         return dir
 
-    def function_C(self, input_R_hat):
+    def function_C(self):
         '''
         Create the C maxtrix 
         Input = ...
         Output = num_landmark*3x6 matrix
         '''
-        landmark = np.array([[2.5, 2.5, 0], [5, 0, 0], [0, 0, 0]])
+        # landmark = np.array([[2.5, 2.5, 1], [5, 0, 1], [0, 0, 1]])
         for landmark_idx in range(self.l):
             d = -np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
             first = self.function_Pi(d)
-            # first = self.function_Pi(self.function_d(input_R, input_p, np.transpose(self.z[landmark_idx])))
+            # first = self.function_Pi(self.function_d(input_R, input_p, self.z[landmark_idx]))
             
             # S(R_hat.T x z) TODO: different from original
             # second = np.matmul(np.transpose(input_R_hat), np.array(landmark[landmark_idx])) 
-            second = np.array(self.z_groundtruth[landmark_idx]) #self.function_S(np.matmul(np.transpose(input_R_hat), self.z[landmark_idx])) #TODO
+            second = np.array(self.z_estFrame[landmark_idx]) #self.function_S(np.matmul(np.transpose(input_R_hat), self.z[landmark_idx])) #TODO
             final = -np.cross(first, second)
             C_landmark = np.hstack((final, first))
             if landmark_idx == 0:
@@ -198,20 +185,13 @@ class riccati_observer():
         Change frame (F -> B)
         '''
         return np.matmul(np.transpose(input_rot), input_p)
-
-    def remove_bar(self, input_rot, input_p_bar):
-        '''
-        Change frame (B -> F)
-        '''
-        return np.matmul(np.linalg.inv(np.transpose(input_rot)), input_p_bar)
-
     
     def observer_equations(self, input_p_bar_hat, input_R_hat, input_P):
         # self.observer_equations(input_p_bar_hat, input_R, input_R_hat, input_p, input_P)
-        landmark = np.array([[2.5, 2.5, 0], [5, 0, 0], [0, 0, 0]])
+        # landmark = np.array([[2.5, 2.5, 1], [5, 0, 1], [0, 0, 1]])
         if self.which_eq == 0:
             # omega
-            first_upper = self.angularVelocity #TODO: make sure is not dependent on frame, tho it shouldnt  
+            first_upper = self.angularVelocity #TODO: huh
             
             # -S(omega)p_bat_hat + v_bar
             first_lower = -np.cross(self.angularVelocity, input_p_bar_hat) + self.linearVelocity
@@ -223,13 +203,13 @@ class riccati_observer():
 
                 for landmark_idx in range(self.l):
                     #R_hat.T z #TODO: huh??? different from original
-                    first = np.array(self.z_groundtruth[landmark_idx])
+                    first = np.array(self.z_estFrame[landmark_idx])
                     # first = np.matmul(np.transpose(input_R_hat), np.array(landmark[landmark_idx]))
                     #Pi_d
                     d = -np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
                     Pi_d = self.function_Pi(d)
                     #(p_bar_hat - R_hat.T x z)
-                    second = -np.array(self.z_groundtruth[landmark_idx])
+                    second = -np.array(self.z_estFrame[landmark_idx])
                     # q*
                     final += self.q*np.matmul(np.transpose(np.cross(first, Pi_d)), second)
                     # omega_hat second part lower
@@ -244,56 +224,55 @@ class riccati_observer():
                 second_part = self.k*np.matmul(input_P, second_part)
 
                 # Final
+                print("second_part", second_part)
                 output_omega_hat_p_bar_hat_dot = first_part - second_part
             else:
                 output_omega_hat_p_bar_hat_dot = first_part
             
-        # elif self.which_eq == 1:
-        #     print("NO EQUATION 1")
+        elif self.which_eq == 1:
+            print("NO EQUATION 1")
 
-        # elif self.which_eq == 2:
-        #     ### First part ###
-        #     # omega hat
-        #     first_upper = self.angularVelocity
+        elif self.which_eq == 2:
+            ### First part ###
+            # omega hat
+            first_upper = self.angularVelocity
 
-        #     # -S(w)p_bar_hat + v_bar
-        #     first_lower = -np.matmul(self.function_S(self.angularVelocity), input_p_bar_hat) + self.linearVelocity
-        #     # first part final
-        #     first_part = np.vstack((first_upper, first_lower))
+            # -S(w)p_bar_hat + v_bar
+            first_lower = -np.cross(self.angularVelocity, input_p_bar_hat) + self.linearVelocity
+            # first part final
+            first_part = np.hstack((first_upper, first_lower))
 
-        #     if not self.z.any() == None:
-        #         ### Second part ###
-        #         # omega hat
-        #         final = np.transpose(np.array([[0, 0, 0]], dtype=np.float64))
-        #         final2 = np.transpose(np.array([[0, 0, 0]], dtype=np.float64))
-        #         for landmark_idx in range(self.l):
-        #             d_bar_hat = (input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx])))/ np.linalg.norm(input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx])))
-        #             Pi_d_bar_hat = self.function_Pi(d_bar_hat)
-        #             # q S(R_hat.T z) Pi_d_bar_hat 
-        #             first = self.q*np.matmul(self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx]))), Pi_d_bar_hat)
-        #             # |p_bar_hat - R_hat.T z| di
-        #             second = np.linalg.norm(input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx])))*self.function_d(input_R, input_p, np.transpose(self.z[landmark_idx]))
-        #             final += np.matmul(first, second)
+            if len(self.z) != 0:
+                ### Second part ###
+                # omega hat
+                final = np.transpose(np.array([[0, 0, 0]], dtype=np.float64))
+                final2 = np.transpose(np.array([[0, 0, 0]], dtype=np.float64))
+                for landmark_idx in range(self.l):
+                    d_bar_hat = (input_p_bar_hat - np.matmul(np.transpose(input_R_hat), self.z[landmark_idx]))/ np.linalg.norm(input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx])))
+                    Pi_d_bar_hat = self.function_Pi(d_bar_hat)
+                    # q S(R_hat.T z) Pi_d_bar_hat 
+                    first = self.q*np.matmul(self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx]))), Pi_d_bar_hat)
+                    # |p_bar_hat - R_hat.T z| di
+                    second = np.linalg.norm(input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx])))*self.function_d(input_R, input_p, np.transpose(self.z[landmark_idx]))
+                    final += np.matmul(first, second)
 
-        #             # q Pi_d_bar_hat
-        #             first = self.q*Pi_d_bar_hat
-        #             # |p_bar_hat - R_hat.T z| di
-        #             #second 
-        #             final2 += np.matmul(first, second)
+                    # q Pi_d_bar_hat
+                    first = self.q*Pi_d_bar_hat
+                    # |p_bar_hat - R_hat.T z| di
+                    #second 
+                    final2 += np.matmul(first, second)
 
-        #         second_part = np.vstack((final, final2))
-        #         second_part = self.k*np.matmul(input_P, second_part)
+                second_part = np.vstack((final, final2))
+                second_part = self.k*np.matmul(input_P, second_part)
 
-        #         output_omega_hat_p_bar_hat_dot = first_part + second_part
-        #     else:
-        #         output_omega_hat_p_bar_hat_dot = first_part
+                output_omega_hat_p_bar_hat_dot = first_part + second_part
+            else:
+                output_omega_hat_p_bar_hat_dot = first_part
 
         return output_omega_hat_p_bar_hat_dot
 
     def dynamics(self, t, y):
         # pose
-        input_p = np.transpose(np.array([[2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10]]))
-
         ####################################
         ########### Measurements ###########
         # Linear Velocity
@@ -319,7 +298,7 @@ class riccati_observer():
 
         input_A = self.function_A(self.angularVelocity)
         if len(self.z) != 0:
-            input_C = self.function_C(input_R_hat)
+            input_C = self.function_C()
         ####################################
 
         ####################################
@@ -335,7 +314,7 @@ class riccati_observer():
             # print("CQCP", np.matmul(np.transpose(input_C), np.matmul(self.Q, np.matmul(input_C, input_P))))
             # print("PCQCP", np.matmul(input_P, np.matmul(np.transpose(input_C), np.matmul(self.Q, np.matmul(input_C, input_P)))))
         else:
-            output_P_dot = np.matmul(input_A, input_P) + np.matmul(input_P, np.transpose(input_A)) + self.linearVelocity
+            output_P_dot = np.matmul(input_A, input_P) + np.matmul(input_P, np.transpose(input_A)) + self.V
         p_bar_hat_dot = output_omega_hat_p_bar_hat_dot[3:]
 
         ####################################
@@ -408,9 +387,9 @@ class riccati_observer():
                 # self.caltime.append(end_time - start_time)
                 # start_time = end_time
                 self.current_time = next_time
-                print("t", self.solt, "dt", self.dt, "next dt", new_dt )
-                print("soly qua", self.soly[:4]) #w, x ,y ,z
-                print("soly pose", self.soly[4:7])
+                # print("t", self.solt, "dt", self.dt, "next dt", new_dt )
+                # print("soly qua", self.soly[:4]) #w, x ,y ,z
+                # print("soly pose", self.soly[4:7])
             self.dt = new_dt
             ####################### Solver #######################
             ######################################################

@@ -100,6 +100,10 @@ class riccati_observer():
         if not self.running_rk45:
             self.angularVelocity = angular_velocity
 
+    def update_current_time(self, current_time):
+        if not self.running_rk45:
+            self.current_time = current_time
+
     def function_S(self, input):
         '''
         Create a 3x3 skew-symmetric matrix, S(x)y = x x y
@@ -122,16 +126,16 @@ class riccati_observer():
         '''
         return np.eye(3) + 2*np.matmul(self.function_S(quaternion[1:]), (quaternion[0]*np.eye(3) + self.function_S(quaternion[1:])))
 
-    def function_A(self, omega):
+    def function_A(self):
         '''
         Create the A maxtrix 
         Input = 3x1 array
         Output = 6x6 matrix
         '''
-        A11 = self.function_S(-omega)
+        A11 = self.function_S(-self.angularVelocity)
         A12 = np.zeros((3,3))
         A21 = np.zeros((3,3))
-        A22 = self.function_S(-omega)
+        A22 = self.function_S(-self.angularVelocity)
         return np.vstack((np.hstack((A11, A12)), np.hstack((A21, A22))))
 
     def function_Pi(self, input):
@@ -171,7 +175,7 @@ class riccati_observer():
             
             # S(R_hat.T x z) TODO: different from original
             # second = np.matmul(np.transpose(input_R_hat), np.array(landmark[landmark_idx])) 
-            second = np.array(self.z_estFrame[landmark_idx]) #self.function_S(np.matmul(np.transpose(input_R_hat), self.z[landmark_idx])) #TODO
+            second = np.array(self.z_estFrame[landmark_idx]) # self.function_S(np.matmul(np.transpose(input_R_hat), self.z[landmark_idx])) #TODO
             final = -np.cross(first, second)
             C_landmark = np.hstack((final, first))
             if landmark_idx == 0:
@@ -219,16 +223,21 @@ class riccati_observer():
                     final2 += self.q*np.matmul(Pi_d, second)
 
                 second_part = np.hstack((final, final2))
+                # print(final)
+                # print("-----------------------------------")
+                # print(final2)
+                # print("-----------------------------------")
+                # print(second_part)
                 #kP[]
                 #full second part 
                 second_part = self.k*np.matmul(input_P, second_part)
-
+                print("second part", second_part)
                 # Final
-                print("second_part", second_part)
                 output_omega_hat_p_bar_hat_dot = first_part - second_part
+                print("dot", output_omega_hat_p_bar_hat_dot)
             else:
                 output_omega_hat_p_bar_hat_dot = first_part
-            
+                # print("output_omega_hat_p_bar_hat_dot", output_omega_hat_p_bar_hat_dot)
         elif self.which_eq == 1:
             print("NO EQUATION 1")
 
@@ -296,7 +305,7 @@ class riccati_observer():
         input_p_bar_hat = p_bar_hat_flat
         input_P = input_P_flat.reshape((6,6))
 
-        input_A = self.function_A(self.angularVelocity)
+        input_A = self.function_A()
         if len(self.z) != 0:
             input_C = self.function_C()
         ####################################
@@ -331,7 +340,7 @@ class riccati_observer():
         ####################################
 
     def rk45_step(self):
-        self.running_rk45 = True
+        
         a2, a3, a4, a5, a6 = 1/5, 3/10, 4/5, 8/9, 1
         b21 = 1/5
         b31, b32 = 3/40, 9/40
@@ -348,7 +357,6 @@ class riccati_observer():
         k4 = self.dynamics(self.current_time + a4*self.dt, self.soly + self.dt*(b41*k1 + b42*k2 + b43*k3))
         k5 = self.dynamics(self.current_time + a5*self.dt, self.soly + self.dt*(b51*k1 + b52*k2 + b53*k3 + b54*k4))
         k6 = self.dynamics(self.current_time + a6*self.dt, self.soly + self.dt*(b61*k1 + b62*k2 + b63*k3 + b64*k4 + b65*k5))
-        self.running_rk45 = False
         # Update step
         y_next = self.soly + self.dt*(c1*k1 + c2*k2 + c3*k3 + c4*k4 + c5*k5 + c6*k6)
         y_next_4 = self.soly + self.dt * (c1_4*k1 + c3_4*k3 + c4_4*k4 + c5_4*k5 + c6_4*k6)
@@ -373,10 +381,13 @@ class riccati_observer():
         ### Run solver
         ######################################################
         ####################### Solver #######################
+        self.running_rk45 = True
         success = False
+        self.dt = self.stepsize
         while not success:
             # args = (self.k, z, self.q, self.Q, self.V, self.l)
             # y_next, next_time, new_dt, success = self.rk45_step(self.current_time, self.soly[-1], self.dt, args, self.tol, self.use_adaptive)
+            print('current_time', self.current_time)
             y_next, next_time, new_dt, success = self.rk45_step()
             if success:
                 self.soly = y_next
@@ -386,10 +397,13 @@ class riccati_observer():
                 # end_time = systemtime.time()
                 # self.caltime.append(end_time - start_time)
                 # start_time = end_time
-                self.current_time = next_time
+                # self.current_time = next_time
                 # print("t", self.solt, "dt", self.dt, "next dt", new_dt )
                 # print("soly qua", self.soly[:4]) #w, x ,y ,z
                 # print("soly pose", self.soly[4:7])
+                self.running_rk45 = False
+            else:
+                print("---------------- Failed ----------------")
             self.dt = new_dt
             ####################### Solver #######################
             ######################################################

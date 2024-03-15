@@ -15,4 +15,7 @@
     <node pkg="svea_mocap" type="mocap_only.py" name="mocap_only" output="screen">
         <param name="mocap_name" value="$(arg mocap_name)"/>
     </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="tf_mocap_to_map" args="$0 0 0 0 0 0 mocap map 100" />
+
 </launch>

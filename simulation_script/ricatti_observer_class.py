@@ -41,7 +41,7 @@ class riccati_observer():
         self.v = kwargs.get('v', [0.1,1])
         self.l = len(self.z_appear)
         self.q = kwargs.get('q', 10)
-        self.q = self.q * self.l
+        self.q = self.q
         self.V = np.diag(np.hstack([np.diag(self.v[i]*np.eye(3)) for i in range(len(self.v))]))
         self.Q = np.diag(np.hstack([np.diag(self.q*np.eye(3)) for i in range(self.l)]))
 
@@ -391,7 +391,7 @@ class riccati_observer():
         except Exception as e:
             print(e)
 
-        return figure, ax
+        return figure, ax, plot_act_lambda_bar, plot_act_p_bar
         ###############################################################################################################################
         ###############################################################################################################################
 
@@ -409,7 +409,7 @@ class riccati_observer():
                 final2 = np.transpose(np.array([[0, 0, 0]], dtype=np.float64))
                 for landmark_idx in range(num_landmarks):
                     #q*S(R_hat.T z)
-                    first = input_q[landmark_idx]*self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx])))
+                    first = input_q*self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx])))
                     #Pi_d
                     Pi_d = self.function_Pi(self.function_d(input_R, input_p, np.transpose(input_z[landmark_idx]), with_noise)) #TODO
                     #(p_bar_hat - R_hat.T x z)
@@ -417,7 +417,7 @@ class riccati_observer():
                     final += np.matmul(first, np.matmul(Pi_d, second))
                     # omega_hat second part lower
                     #q*Pi_d
-                    first = input_q[landmark_idx]*Pi_d
+                    first = input_q*Pi_d
                     #(p_bar_hat - R_hat.T x z)
                     # second = input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx]))
                     final2 += np.matmul(first, second)
@@ -453,13 +453,13 @@ class riccati_observer():
                     d_bar_hat = (input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx])))/ np.linalg.norm(input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx])))
                     Pi_d_bar_hat = self.function_Pi(d_bar_hat)
                     # q S(R_hat.T z) Pi_d_bar_hat 
-                    first = input_q[landmark_idx]*np.matmul(self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx]))), Pi_d_bar_hat)
+                    first = input_q*np.matmul(self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx]))), Pi_d_bar_hat)
                     # |p_bar_hat - R_hat.T z| di
                     second = np.linalg.norm(input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx])))*self.function_d(input_R, input_p, np.transpose(input_z[landmark_idx]), with_noise)
                     final += np.matmul(first, second)
 
                     # q Pi_d_bar_hat
-                    first = input_q[landmark_idx]*Pi_d_bar_hat
+                    first = input_q*Pi_d_bar_hat
                     # |p_bar_hat - R_hat.T z| di
                     #second 
                     final2 += np.matmul(first, second)
@@ -484,7 +484,7 @@ class riccati_observer():
             b_v = np.random.normal(0, 0.1, 1)
             b_omega = np.random.normal(0, 0.01, 1)
             # velocity
-            input_v = np.transpose(np.array([[-np.sin(0.4*0), np.cos(0.4*0), 0]])) + b_v
+            input_v = np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]])) + b_v
             # angular velocity
             if which_omega == "z":
                 pass
@@ -494,7 +494,7 @@ class riccati_observer():
                 # input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]])) + b_omega
         else:
             # velocity
-            input_v = np.transpose(np.array([[0.1, 0, 0]])) #np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]]))
+            input_v = np.transpose(np.array([[0, 0, 0]])) #np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]]))
             # angular velocity
             if which_omega == "z":
                 # input_omega = np.transpose(np.array([[0, 0, 0.6*0]]))
@@ -640,8 +640,8 @@ class riccati_observer():
                         l = np.rint(l).astype(int)
                         z = self.z_appear[l[:, 0] == 1]
                         self.l = np.sum(l)
-                        self.q = self.q * l
-                        self.Q = np.diag(np.hstack([np.diag(self.q[aa]*np.eye(3)) for aa in range(l)]))
+                        self.q = self.q
+                        self.Q = np.diag(np.hstack([np.diag(self.q*np.eye(3)) for aa in range(l)]))
                     else:
                         self.l = len(self.z_appear)
                         z = self.z_appear
@@ -710,8 +710,8 @@ class riccati_observer():
                         l = np.rint(l).astype(int)
                         z = self.z_appear[l[:, 0] == 1]
                         self.l = np.sum(l)
-                        self.q = self.q * l
-                        self.Q = np.diag(np.hstack([np.diag(self.q[aa]*np.eye(3)) for aa in range(l)]))
+                        self.q = self.q
+                        self.Q = np.diag(np.hstack([np.diag(self.q*np.eye(3)) for aa in range(l)]))
                     else:
                         self.l = len(self.z_appear)
                         z = self.z_appear

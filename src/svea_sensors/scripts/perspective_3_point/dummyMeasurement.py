@@ -12,17 +12,24 @@ import tf2_geometry_msgs
 
 import pandas as pd
 
+AveAll = True
 class dummyMeasurement():
     def __init__(self):
         rospy.init_node("dummyMeasurement")
+        self.svea_frame_name = "svea2"
 
-        rospy.Subscriber("/qualisys/svea5/odom", Odometry, self.Odomcallback)
-        self.linearXRunningAvg = 0
-        self.angularZRunningAvg = 0
+        rospy.Subscriber("/qualisys/" + self.svea_frame_name + "/odom", Odometry, self.Odomcallback)
+        if AveAll:
+            self.linearXRunningAvg = np.array([0, 0, 0])
+            self.angularZRunningAvg = np.array([0, 0, 0])
+        else:
+            self.linearXRunningAvg = 0
+            self.angularZRunningAvg = 0
         self.alpha = 2/(20+1)
-        self.landmarkPub = rospy.Publisher("/aruco/detection/groundtruth", ArucoArray, queue_size=1)
-        self.landmark2Pub = rospy.Publisher("/aruco/detection", ArucoArray, queue_size=1)
-        self.twistPub = rospy.Publisher("/odometry/filtered/global", Odometry, queue_size=1)
+        self.alphaAng = 2/(30+1)
+        self.landmarkPub = rospy.Publisher("/aruco/detection/groundtruth", ArucoArray, queue_size=10)
+        self.landmark2Pub = rospy.Publisher("/aruco/detection", ArucoArray, queue_size=10)
+        self.twistPub = rospy.Publisher("/odometry/filtered/global", Odometry, queue_size=10)
         self.seq = 0
         self.frame = "map" #TODO: need to add a transformation such that the landmark is in base_link frame
         self.time = rospy.Time.now()
@@ -33,7 +40,6 @@ class dummyMeasurement():
         self.motion = "bag" #"static", "linear", "angular", "both"
         self.stepCounter = 0 
 
-        self.svea_frame_name = "svea5"
 
         if self.motion == "test":
             sim_solution = pd.read_csv("/home/annika/ITRL/kth_thesis/simulated_result/angular.txt", header=None)
@@ -95,8 +101,16 @@ class dummyMeasurement():
             linear = [0.3, 0, 0]
             angular = [0, 0, 0.3]
         elif self.motion == "bag":
-            linear = [odomMsg.twist.twist.linear.x, odomMsg.twist.twist.linear.y, odomMsg.twist.twist.linear.z]
-            angular = [odomMsg.twist.twist.angular.x, odomMsg.twist.twist.angular.y, odomMsg.twist.twist.angular.z]
+            if AveAll:
+                self.linearXRunningAvg = self.alpha * np.array([odomMsg.twist.twist.linear.x, odomMsg.twist.twist.linear.y, odomMsg.twist.twist.linear.z]) + (1 - self.alpha) * self.linearXRunningAvg
+                self.angularZRunningAvg = self.alphaAng * np.array([odomMsg.twist.twist.angular.x, odomMsg.twist.twist.angular.y, odomMsg.twist.twist.angular.z]) + (1 - self.alphaAng) * self.angularZRunningAvg
+                linear = self.linearXRunningAvg 
+                angular = self.angularZRunningAvg
+            else:
+                self.linearXRunningAvg = self.alpha * odomMsg.twist.twist.linear.x + (1 - self.alpha) * self.linearXRunningAvg
+                self.angularZRunningAvg = self.alphaAng * odomMsg.twist.twist.angular.z + (1 - self.alphaAng) * self.angularZRunningAvg
+                linear = [self.linearXRunningAvg, odomMsg.twist.twist.linear.y, odomMsg.twist.twist.linear.z]
+                angular = [odomMsg.twist.twist.angular.x, odomMsg.twist.twist.angular.y, self.angularZRunningAvg]
         elif self.motion == "test":
             linear = [0, 0, 0]
             angular = [0, 0, 0.3]

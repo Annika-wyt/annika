@@ -27,7 +27,7 @@ class ricatti_estimation():
 
         self.stop = 0
         self.startTime = rospy.Time.now()
-        self.svea_frame_name = "svea5"
+        self.svea_frame_name = "svea2"
         ##############################################
         ################# Subscriber #################
 
@@ -37,7 +37,7 @@ class ricatti_estimation():
         Twist = Subscriber('/odometry/filtered/global', Odometry)
         Landmark = Subscriber('/aruco/detection', ArucoArray)
         LandmarkGroudtruth = Subscriber('/aruco/detection/groundtruth', ArucoArray)
-        sync = ApproximateTimeSynchronizer([Twist, Landmark, LandmarkGroudtruth], queue_size=1, slop=0.1)
+        sync = ApproximateTimeSynchronizer([Twist, Landmark, LandmarkGroudtruth], queue_size=10, slop=0.1)
         sync.registerCallback(self.TwistAndLandmarkCallback)
         self.seq = 0
         
@@ -46,7 +46,7 @@ class ricatti_estimation():
         ################# Subscriber #################
         ##############################################
 
-        self.dtPublisher = rospy.Publisher("/ricatti/dt", Float32, queue_size=1)
+        self.dtPublisher = rospy.Publisher("/ricatti/dt", Float32, queue_size=10)
         ##############################################
         ################# Variables ##################
 
@@ -59,10 +59,10 @@ class ricatti_estimation():
 
         ##############################################
         ################# Parameters #################
-        k = rospy.get_param("~k", 10)
+        k = rospy.get_param("~k", 7)
         q = rospy.get_param("~q", 3)
-        v1 = rospy.get_param("~v1", 2)
-        v2 = rospy.get_param("~v2", 3)
+        v1 = rospy.get_param("~v1", 1)
+        v2 = rospy.get_param("~v2", 1)
         # estpose = rospy.get_param("~estpose", np.array([0, 0, 0]))
         # estori = rospy.get_param("~estori", np.array([1, 0, 0, 0]))
         self.estpose = np.array([1.5, -1.5, 0])
@@ -87,8 +87,7 @@ class ricatti_estimation():
     def pub_EstPose(self, timeStamp, dt):
         msg = TransformStamped()
         msg.header.seq = self.seq
-        # new_secs = timeStamp.secs + dt
-        msg.header.stamp = timeStamp
+        msg.header.stamp = timeStamp + rospy.Duration(dt)
         msg.header.frame_id = 'map'
         msg.child_frame_id = 'base_link_est'
         msg.transform.translation = Vector3(*self.estpose)
@@ -113,10 +112,11 @@ class ricatti_estimation():
         # if self.stop < 1:
         # if self.t <= 5:
             timeStamp = LandmarkGroudtruthMsg.header.stamp
-            # linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
-            linear_velocity = np.array([TwistMsg.twist.twist.linear.x, 0, 0])
-            angular_velocity = np.array([0, 0, 0])
+            linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
+            # linear_velocity = np.array([TwistMsg.twist.twist.linear.x, 0, 0])
+            # angular_velocity = np.array([0, 0, 0])
             # angular_velocity = np.array([0, 0, TwistMsg.twist.twist.angular.z])
+            angular_velocity = np.array([TwistMsg.twist.twist.angular.x, TwistMsg.twist.twist.angular.y, TwistMsg.twist.twist.angular.z])
             landmark = []
             landmarkEst = []
             for aruco in LandmarkMsg.arucos:

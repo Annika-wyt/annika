@@ -45,6 +45,7 @@ class riccati_observer():
         self.P_ricatti = np.diag(np.hstack([np.diag(self.p_ricatti[i]*np.eye(3)) for i in range(len(self.p_ricatti))]))
 
         self.Lambda_bar_0 = kwargs.get('Lambda_bar_0', np.array([1, 0, 0, 0]).T)  # quaternion: w, x, y, z
+        print(self.Lambda_bar_0)
         self.Rot_hat = kwargs.get('Rot_hat', self.rodrigues_formula(self.Lambda_bar_0))
         self.p_hat = kwargs.get('p_hat', np.array([[0, 0, 0]], dtype=np.float64).T)
         self.p_bar_hat = self.add_bar(self.Rot_hat, self.p_hat)
@@ -231,13 +232,12 @@ class riccati_observer():
                 #kP[]
                 #full second part 
                 second_part = self.k*np.matmul(input_P, second_part)
-                print("second part", second_part)
+                # print("second part", second_part)
                 # Final
                 output_omega_hat_p_bar_hat_dot = first_part - second_part
-                print("dot", output_omega_hat_p_bar_hat_dot)
             else:
                 output_omega_hat_p_bar_hat_dot = first_part
-                # print("output_omega_hat_p_bar_hat_dot", output_omega_hat_p_bar_hat_dot)
+            print("dot", output_omega_hat_p_bar_hat_dot)
         elif self.which_eq == 1:
             print("NO EQUATION 1")
 
@@ -253,30 +253,35 @@ class riccati_observer():
 
             if len(self.z) != 0:
                 ### Second part ###
-                # omega hat
-                final = np.transpose(np.array([[0, 0, 0]], dtype=np.float64))
-                final2 = np.transpose(np.array([[0, 0, 0]], dtype=np.float64))
+                final = np.transpose(np.array([0, 0, 0], dtype=np.float64))
+                final2 = np.transpose(np.array([0, 0, 0], dtype=np.float64))
                 for landmark_idx in range(self.l):
-                    d_bar_hat = (input_p_bar_hat - np.matmul(np.transpose(input_R_hat), self.z[landmark_idx]))/ np.linalg.norm(input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx])))
+                    d = -np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
+                    d_bar_hat = np.array(self.z_estFrame[landmark_idx])/np.linalg.norm(self.z_estFrame[landmark_idx])
                     Pi_d_bar_hat = self.function_Pi(d_bar_hat)
-                    # q S(R_hat.T z) Pi_d_bar_hat 
-                    first = self.q*np.matmul(self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx]))), Pi_d_bar_hat)
+                    # S(R_hat.T z) Pi_d_bar_hat 
+                    # first = np.cross(np.array(self.z_estFrame[landmark_idx]), Pi_d_bar_hat)
+                    # print("cross \n", first)
+                    first = np.matmul(self.function_S(np.array(self.z_estFrame[landmark_idx])), Pi_d_bar_hat)
+                    # print("z est frame \n", np.array(self.z_estFrame[landmark_idx]))
+                    # print("S \n ", self.function_S(np.array(self.z_estFrame[landmark_idx])))
                     # |p_bar_hat - R_hat.T z| di
-                    second = np.linalg.norm(input_p_bar_hat - np.matmul(np.transpose(input_R_hat), np.transpose(self.z[landmark_idx])))*self.function_d(input_R, input_p, np.transpose(self.z[landmark_idx]))
-                    final += np.matmul(first, second)
+                    second = (np.linalg.norm(self.z_estFrame[landmark_idx])*d).reshape((3,1))
+                    final += np.matmul(first, second).reshape((3,))
 
-                    # q Pi_d_bar_hat
-                    first = self.q*Pi_d_bar_hat
+                    # Pi_d_bar_hat
+                    first = Pi_d_bar_hat
                     # |p_bar_hat - R_hat.T z| di
                     #second 
-                    final2 += np.matmul(first, second)
+                    final2 += np.matmul(first, second).reshape((3,))
 
-                second_part = np.vstack((final, final2))
-                second_part = self.k*np.matmul(input_P, second_part)
+                second_part = np.hstack((final, final2))
+                second_part = self.k*self.q*np.matmul(input_P, second_part)
 
                 output_omega_hat_p_bar_hat_dot = first_part + second_part
             else:
                 output_omega_hat_p_bar_hat_dot = first_part
+            print("dot", output_omega_hat_p_bar_hat_dot)
 
         return output_omega_hat_p_bar_hat_dot
 

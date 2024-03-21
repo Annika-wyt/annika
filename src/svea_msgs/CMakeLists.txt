@@ -55,6 +55,7 @@ find_package(catkin REQUIRED COMPONENTS
    lli_encoder.msg
    lli_emergency.msg
    VehicleState.msg
+   riccati_setup.msg
    Aruco.msg
    ArucoArray.msg
  )

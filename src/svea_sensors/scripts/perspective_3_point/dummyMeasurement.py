@@ -25,7 +25,6 @@ class dummyMeasurement():
         sync = ApproximateTimeSynchronizer([OdomTopic, VelTopic], queue_size=1, slop=0.1)
         sync.registerCallback(self.OdomVelCallback)
 
-
         if AveAll:
             self.linearXRunningAvg = np.array([0, 0, 0])
             self.angularZRunningAvg = np.array([0, 0, 0])
@@ -132,6 +131,7 @@ class dummyMeasurement():
         odometryMsg.twist.twist.linear = Vector3(*linear)
         odometryMsg.twist.twist.angular = Vector3(*angular)
         self.twistPub.publish(odometryMsg)
+        print(odometryMsg)
 
     def publishBaselink(self, odomMsg):
         msg = TransformStamped()
@@ -222,7 +222,7 @@ class dummyMeasurement():
             self.landmarkPub.publish(arucoArrayMsg)
             self.landmark2Pub.publish(arucoArrayMsg2)
         except:
-            print("waiting for transform between base link and map")
+            print("waiting for transform between " + self.svea_frame_name + " and map")
 
 if __name__ == "__main__":
     dummyMeasurement().run()

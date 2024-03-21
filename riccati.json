@@ -1,0 +1,314 @@
+{
+  "configById": {
+    "Plot!3b40i9o": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/odometry/filtered/global.twist.twist.linear.x",
+          "enabled": true
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/odometry/filtered/global.twist.twist.angular.z",
+          "enabled": true
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240,
+      "followingViewWidth": 100,
+      "foxglovePanelTitle": "Velocities",
+      "minYValue": -1.5,
+      "maxYValue": 1.5
+    },
+    "RawMessages!12jno65": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/ricatti/setup"
+    },
+    "3D!271mtjg": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 18.04999999999854,
+        "phi": 0.000057304686744168496,
+        "thetaOffset": 0.42857171944077344,
+        "targetOffset": [
+          0.40985441138126816,
+          1.1327541381136708,
+          5.217537290548311e-18
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "enableStats": false
+      },
+      "transforms": {
+        "frame:aruco0_actual": {
+          "visible": false
+        },
+        "frame:mocap": {
+          "visible": false
+        },
+        "frame:odom": {
+          "visible": false
+        },
+        "frame:base_link": {
+          "visible": false
+        },
+        "frame:camera": {
+          "visible": false
+        },
+        "frame:gps": {
+          "visible": false
+        },
+        "frame:imu": {
+          "visible": false
+        },
+        "frame:laser": {
+          "visible": false
+        },
+        "frame:t265_camera_pose_frame": {
+          "visible": false
+        },
+        "frame:t265_camera_odom_frame": {
+          "visible": false
+        },
+        "frame:pedestrian": {
+          "visible": false
+        },
+        "frame:base_link_est": {
+          "visible": true
+        },
+        "frame:svea3": {
+          "visible": false
+        },
+        "frame:lm12": {
+          "visible": false
+        },
+        "frame:lm13": {
+          "visible": false
+        },
+        "frame:lm14": {
+          "visible": false
+        },
+        "frame:lm15": {
+          "visible": false
+        },
+        "frame:lm16": {
+          "visible": false
+        },
+        "frame:lm17": {
+          "visible": false
+        },
+        "frame:lm18": {
+          "visible": false
+        }
+      },
+      "topics": {},
+      "layers": {
+        "21ff1294-96a7-4e17-9044-32ea6069def4": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "21ff1294-96a7-4e17-9044-32ea6069def4",
+          "layerId": "foxglove.Grid",
+          "frameId": "map",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "followTf": "map"
+    },
+    "Plot!2f4um2a": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/diff_est_act.transform.translation.x",
+          "enabled": true,
+          "color": "#8ae34f"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/diff_est_act.transform.translation.y",
+          "enabled": true
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/diff_est_act.transform.translation.z",
+          "enabled": true
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 281,
+      "followingViewWidth": 100,
+      "foxglovePanelTitle": "Pose"
+    },
+    "Plot!3k6uzqm": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/diff_est_act.transform.rotation.w",
+          "enabled": true
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/diff_est_act.transform.rotation.x",
+          "enabled": true
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/diff_est_act.transform.rotation.y",
+          "enabled": true
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/diff_est_act.transform.rotation.z",
+          "enabled": true
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240,
+      "foxglovePanelTitle": "Orientation",
+      "followingViewWidth": 100
+    },
+    "Plot!1nekt8u": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/qualisys/svea3/odom.twist.twist.angular.z",
+          "enabled": false
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/qualisys/svea3/odom.twist.twist.linear.x",
+          "enabled": false
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/qualisys/svea5/odom.twist.twist.angular.z",
+          "enabled": false
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/qualisys/svea5/odom.twist.twist.linear.x",
+          "enabled": false
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/qualisys/svea2/odom.twist.twist.linear.x",
+          "enabled": false
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/qualisys/svea2/odom.twist.twist.angular.z",
+          "enabled": true
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/odometry/filtered/global.twist.twist.angular.z",
+          "enabled": true
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/odometry/filtered/global.twist.twist.linear.x",
+          "enabled": false
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 281,
+      "followingViewWidth": 100,
+      "foxglovePanelTitle": "Angular"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 2
+  },
+  "layout": {
+    "direction": "row",
+    "first": {
+      "first": "Plot!3b40i9o",
+      "second": "RawMessages!12jno65",
+      "direction": "column"
+    },
+    "second": {
+      "first": {
+        "first": "3D!271mtjg",
+        "second": {
+          "first": "Plot!2f4um2a",
+          "second": "Plot!3k6uzqm",
+          "direction": "column"
+        },
+        "direction": "row",
+        "splitPercentage": 56.09271523178807
+      },
+      "second": "Plot!1nekt8u",
+      "direction": "column",
+      "splitPercentage": 100
+    },
+    "splitPercentage": 21.354166666666664
+  }
+}

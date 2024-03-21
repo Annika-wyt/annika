@@ -237,7 +237,7 @@ class riccati_observer():
                 output_omega_hat_p_bar_hat_dot = first_part - second_part
             else:
                 output_omega_hat_p_bar_hat_dot = first_part
-            print("dot", output_omega_hat_p_bar_hat_dot)
+            # print("dot", output_omega_hat_p_bar_hat_dot)
         elif self.which_eq == 1:
             print("NO EQUATION 1")
 

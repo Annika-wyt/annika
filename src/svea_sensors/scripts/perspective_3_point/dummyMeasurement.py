@@ -75,7 +75,7 @@ class dummyMeasurement():
 
     def OdomVelCallback(self, Odommsg, Velmsg):
         try:
-            transform_base_map = self.buffer.lookup_transform(self.svea_frame_name, "map", Odommsg.header.stamp, rospy.Duration(2.0))
+            transform_base_map = self.buffer.lookup_transform(self.svea_frame_name, "map", Odommsg.header.stamp, rospy.Duration(0.5))
             transMsg = Vector3Stamped()
             transMsg.header = Velmsg.header
             transMsg.vector = Velmsg.twist.linear
@@ -131,7 +131,7 @@ class dummyMeasurement():
         odometryMsg.twist.twist.linear = Vector3(*linear)
         odometryMsg.twist.twist.angular = Vector3(*angular)
         self.twistPub.publish(odometryMsg)
-        print(odometryMsg)
+        # print(odometryMsg)
 
     def publishBaselink(self, odomMsg):
         msg = TransformStamped()

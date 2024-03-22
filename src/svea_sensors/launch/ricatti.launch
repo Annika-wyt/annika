@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+
+ <node name="ricatti_estimation" pkg="svea_sensors" type="ricatti_estimation.py" output="screen"/>
+    
+ <!-- <node name="dummyMeasurement" pkg="svea_sensors" type="dummyMeasurement.py" output="screen"/> -->
+ 
+ <node name="diff_est_act" pkg="svea_sensors" type="diff_est_act.py" output="screen"/>
+ 
+ <node name="map_server" pkg="map_server" type="map_server"  output="screen" args="/home/annika/ITRL/kth_thesis/src/svea_core/maps/sml.yaml"/>
+
+</launch>

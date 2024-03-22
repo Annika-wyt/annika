@@ -83,6 +83,18 @@ class riccati_observer():
     {P_ricatti_str}
         """)
 
+    def update_measurement(self, angular, linear, landmark, landmarkEst, current_time):
+        # if not self.running_rk45:
+            self.angularVelocity = angular
+            self.linearVelocity = linear
+            self.current_time = current_time
+            if len(landmark) != 0:
+                self.z = landmark
+                self.l = len(self.z)
+                self.Q = np.diag(np.hstack([np.diag(self.q*np.eye(3)) for i in range(self.l)])) if self.l != 0 else np.array([])
+            if len(landmarkEst) != 0:
+                self.z_estFrame = landmarkEst
+
     def update_z(self, landmark):
         if not self.running_rk45:
             self.z = landmark
@@ -196,10 +208,11 @@ class riccati_observer():
         # landmark = np.array([[2.5, 2.5, 1], [5, 0, 1], [0, 0, 1]])
         if self.which_eq == 0:
             # omega
-            first_upper = self.angularVelocity #TODO: huh
+            first_upper = self.angularVelocity
             
             # -S(omega)p_bat_hat + v_bar
-            first_lower = -np.cross(self.angularVelocity, input_p_bar_hat) + self.linearVelocity
+            first_lower = -np.matmul(self.function_S(self.angularVelocity), input_p_bar_hat) + self.linearVelocity
+            # first_lower = -np.cross(self.angularVelocity, input_p_bar_hat) + self.linearVelocity
             first_part = np.hstack((first_upper, first_lower))
             # omega_hat second part upper
             if len(self.z) != 0:
@@ -247,7 +260,8 @@ class riccati_observer():
             first_upper = self.angularVelocity
 
             # -S(w)p_bar_hat + v_bar
-            first_lower = -np.cross(self.angularVelocity, input_p_bar_hat) + self.linearVelocity
+            first_lower = -np.matmul(self.function_S(self.angularVelocity), input_p_bar_hat) + self.linearVelocity
+            # first_lower = -np.cross(self.angularVelocity, input_p_bar_hat) + self.linearVelocity
             # first part final
             first_part = np.hstack((first_upper, first_lower))
 
@@ -281,7 +295,7 @@ class riccati_observer():
                 output_omega_hat_p_bar_hat_dot = first_part + second_part
             else:
                 output_omega_hat_p_bar_hat_dot = first_part
-            print("dot", output_omega_hat_p_bar_hat_dot)
+        # print("dot", output_omega_hat_p_bar_hat_dot)
 
         return output_omega_hat_p_bar_hat_dot
 
@@ -368,8 +382,8 @@ class riccati_observer():
 
         error = np.abs(y_next - y_next_4)
         error_norm = np.linalg.norm(error)
-        safety_factor = 0.9
-        min_scale_factor = 0.2
+        safety_factor = 0.5
+        min_scale_factor = 0.02
         max_scale_factor = 40.0
         if error_norm <= self.tol:
             success = True
@@ -392,7 +406,6 @@ class riccati_observer():
         while not success:
             # args = (self.k, z, self.q, self.Q, self.V, self.l)
             # y_next, next_time, new_dt, success = self.rk45_step(self.current_time, self.soly[-1], self.dt, args, self.tol, self.use_adaptive)
-            print('current_time', self.current_time)
             y_next, next_time, new_dt, success = self.rk45_step()
             if success:
                 self.soly = y_next
@@ -407,6 +420,7 @@ class riccati_observer():
                 # print("soly qua", self.soly[:4]) #w, x ,y ,z
                 # print("soly pose", self.soly[4:7])
                 self.running_rk45 = False
+                print('current_time', self.current_time, self.dt)
             else:
                 print("---------------- Failed ----------------")
             self.dt = new_dt

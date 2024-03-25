@@ -56,14 +56,15 @@ class ricatti_estimation():
 
         ##############################################
         ################# Parameters #################
-        k = rospy.get_param("~k", 3)
-        q = rospy.get_param("~q", 8)
+        k = rospy.get_param("~k", 5)
+        q = rospy.get_param("~q", 3)
         v1 = rospy.get_param("~v1", 1)
         v2 = rospy.get_param("~v2", 1)
+        self.arucoIdToBeUsed = np.array([12,13,14,15,16,17,18]) #12-18
         # estpose = rospy.get_param("~estpose", np.array([0, 0, 0]))
         # estori = rospy.get_param("~estori", np.array([1, 0, 0, 0]))
         # self.estori = np.array([0, 0, -0.5, 0.5], dtype=np.float64) #x, y, z, w
-        self.estpose = np.array([-0.5, 2.0, 0], dtype=np.float64)
+        self.estpose = np.array([0.5, 2.0, 0], dtype=np.float64)
         self.estori = np.array([0.5, 0, 0, -0.5], dtype=np.float64) #w, x, y, z
         self.initpose = self.estpose
         self.estori /= np.linalg.norm(self.estori)
@@ -83,11 +84,13 @@ class ricatti_estimation():
         v                       = np.array([v1, v2]),
         p_ricatti               = np.array([1, 100])
         )
-        Twist = Subscriber('/odometry/filtered/global', Odometry)
+        Twist = Subscriber('/odometry/filtered', Odometry)
         Landmark = Subscriber('/aruco/detection', ArucoArray)
         LandmarkGroudtruth = Subscriber('/aruco/detection/groundtruth', ArucoArray)
         sync = ApproximateTimeSynchronizer([Twist, Landmark, LandmarkGroudtruth], queue_size=1, slop=0.1)
         sync.registerCallback(self.TwistAndLandmarkCallback)
+
+        self.usedLandmark = rospy.Publisher('/aruco/used', ArucoArray, queue_size=1)
 
         self.time = rospy.Time.now()
         self.pub_EstPose(self.time, 0)
@@ -142,19 +145,25 @@ class ricatti_estimation():
         self.pubRiccatiMsg()
         self.timeStamp = TwistMsg.header.stamp
         # self.pub_EstPose(self.timeStamp, 0)
-        # linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
-        # angular_velocity = np.array([TwistMsg.twist.twist.angular.x, TwistMsg.twist.twist.angular.y, TwistMsg.twist.twist.angular.z])
-        linear_velocity = np.array([TwistMsg.twist.twist.linear.x, 0, 0])
-        angular_velocity = np.array([0, 0, TwistMsg.twist.twist.angular.z])
+        linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
+        angular_velocity = np.array([TwistMsg.twist.twist.angular.x, TwistMsg.twist.twist.angular.y, TwistMsg.twist.twist.angular.z])
+        # linear_velocity = np.array([TwistMsg.twist.twist.linear.x, 0, 0])
+        # angular_velocity = np.array([0, 0, TwistMsg.twist.twist.angular.z])
         landmark = []
         landmarkEst = []
+        arucosUsed = ArucoArray()
+        arucosUsed.header = LandmarkMsg.header
         for aruco in LandmarkMsg.arucos:
-            landmark.append([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])
+            if aruco.marker.id in self.arucoIdToBeUsed:
+                landmark.append([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])
+                arucosUsed.arucos.append(aruco)
+        self.usedLandmark.publish(arucosUsed)
         for aruco in LandmarkGroudtruthMsg.arucos:
-            transform_map_baselink = self.buffer.lookup_transform("base_link_est","map", self.timeStamp, rospy.Duration(0.5))  #rospy.Time.now()
-            position = tf2_geometry_msgs.do_transform_pose(aruco.marker.pose, transform_map_baselink)
-            self.pub_landmark(position, aruco.marker.id)
-            landmarkEst.append([position.pose.position.x, position.pose.position.y, position.pose.position.z])
+            if aruco.marker.id in self.arucoIdToBeUsed:
+                transform_map_baselink = self.buffer.lookup_transform("base_link_est","map", self.timeStamp, rospy.Duration(0.5))  #rospy.Time.now()
+                position = tf2_geometry_msgs.do_transform_pose(aruco.marker.pose, transform_map_baselink)
+                self.pub_landmark(position, aruco.marker.id)
+                landmarkEst.append([position.pose.position.x, position.pose.position.y, position.pose.position.z])
         self.riccati_obj.update_measurement(angular_velocity, linear_velocity, landmark, landmarkEst, (self.timeStamp - self.startTime).to_sec())
         # self.riccati_obj.update_angular_velocity(angular_velocity)
         # if len(landmark) != 0:

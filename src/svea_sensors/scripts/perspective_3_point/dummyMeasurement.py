@@ -33,9 +33,9 @@ class dummyMeasurement():
             self.angularZRunningAvg = 0
         self.alpha = 2/(20+1)
         self.alphaAng = 2/(30+1)
-        self.landmarkPub = rospy.Publisher("/aruco/detection/groundtruth", ArucoArray, queue_size=1)
-        self.landmark2Pub = rospy.Publisher("/aruco/detection", ArucoArray, queue_size=1)
-        self.twistPub = rospy.Publisher("/odometry/filtered/global", Odometry, queue_size=1)
+        self.landmarkPub = rospy.Publisher("/aruco/detection/groundtruth", ArucoArray, queue_size=1) #map frame
+        self.landmark2Pub = rospy.Publisher("/aruco/detection", ArucoArray, queue_size=1) #svea2 frame; actual direction
+        self.twistPub = rospy.Publisher("/odometry/filtered", Odometry, queue_size=1)
         self.seq = 0
         self.frame = "map" #TODO: need to add a transformation such that the landmark is in base_link frame
         self.time = rospy.Time.now()
@@ -43,7 +43,7 @@ class dummyMeasurement():
         self.startTime = rospy.Time.now()
         self.current_time = (self.time - self.startTime).to_sec()
         
-        self.motion = "bag" #"static", "linear", "angular", "both"
+        self.motion = "linear" #"static", "linear", "angular", "both"
         self.stepCounter = 0 
 
 
@@ -77,8 +77,10 @@ class dummyMeasurement():
         try:
             transform_base_map = self.buffer.lookup_transform(self.svea_frame_name, "map", Odommsg.header.stamp, rospy.Duration(0.5))
             transMsg = Vector3Stamped()
+            print("transform_base_map", transform_base_map)
             transMsg.header = Velmsg.header
             transMsg.vector = Velmsg.twist.linear
+            print("tf2", tf2_geometry_msgs.do_transform_vector3(transMsg, transform_base_map))
             trans_linear = tf2_geometry_msgs.do_transform_vector3(transMsg, transform_base_map).vector
             self.publishTwist(Velmsg, trans_linear)   
             self.publishBaselink(Odommsg)
@@ -105,7 +107,7 @@ class dummyMeasurement():
             linear = [0, 0, 0]
             angular = [0, 0, 0]
         elif self.motion == "linear":
-            linear = [-np.sin(0.4*self.current_time), 0, 0]
+            linear = [np.sin(0.4*self.current_time), 0, 0]
             angular = [0, 0, 0]
         elif self.motion == "angular":
             linear = [0, 0, 0]
@@ -143,8 +145,12 @@ class dummyMeasurement():
             msg.transform.translation = Vector3(*[5, 0, 10])
             msg.transform.rotation = Quaternion(*[0, 0, 0, 1]) #x, y, z, w
         elif self.motion == "linear":
-            msg.transform.translation = Vector3(*[2.5+2.5*np.cos(0.4*self.current_time), 0, 0])
-            msg.transform.rotation = Quaternion(*[0, 0, 0, 1]) #x, y, z, w
+            # msg.transform.translation = Vector3(*[5+2.5*np.cos(0.4*self.current_time)*np.cos(np.deg2rad(45)), 5+2.5*np.cos(0.4*self.current_time)*np.sin(np.deg2rad(45)), 0])
+            msg.transform.translation = Vector3(0, *[5+2.5*np.cos(0.4*self.current_time), 0])
+            # rotation = np.array([0, 0, -1.25, 0.5])
+            rotation = np.array([0, 0, -0.5, 0.5])
+            rotation /= np.linalg.norm(rotation)
+            msg.transform.rotation = Quaternion(*rotation) #x, y, z, w
         elif self.motion == "angular":
             msg.transform.translation = Vector3(*[5, 0, 10])
             # msg.transform.rotation = Quaternion(*[0, 0, 0, 1]) #x, y, z, w

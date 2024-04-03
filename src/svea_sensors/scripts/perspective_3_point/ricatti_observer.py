@@ -6,7 +6,7 @@ class riccati_observer():
     def __init__(self, **kwargs):
         ######################################################
         ##################### Parameters #####################
-        self.z_estFrame = np.array([])
+        self.z_groundTruth = np.array([])
         # for key, value in kwargs.items():
             # setattr(self, key, value)
 
@@ -57,7 +57,8 @@ class riccati_observer():
 
         self.dt = self.stepsize
 
-        self.soly = np.concatenate((self.Lambda_bar_0.flatten(), self.p_bar_hat.flatten(), self.P_ricatti.flatten()))
+        self.soly = np.concatenate((self.Rot_hat.flatten(), self.p_bar_hat.flatten(), self.P_ricatti.flatten()))
+        # self.soly = np.concatenate((self.Lambda_bar_0.flatten(), self.p_bar_hat.flatten(), self.P_ricatti.flatten()))
 
         ################### initialization ###################
         ######################################################
@@ -83,7 +84,7 @@ class riccati_observer():
     {P_ricatti_str}
         """)
 
-    def update_measurement(self, angular, linear, landmark, landmarkEst, current_time):
+    def update_measurement(self, angular, linear, landmark, landmarkGroundTruth, current_time):
         # if not self.running_rk45:
             self.angularVelocity = angular
             self.linearVelocity = linear
@@ -92,8 +93,8 @@ class riccati_observer():
                 self.z = landmark
                 self.l = len(self.z)
                 self.Q = np.diag(np.hstack([np.diag(self.q*np.eye(3)) for i in range(self.l)])) if self.l != 0 else np.array([])
-            if len(landmarkEst) != 0:
-                self.z_estFrame = landmarkEst
+            if len(landmarkGroundTruth) != 0:
+                self.z_groundTruth = landmarkGroundTruth
 
     def update_z(self, landmark):
         if not self.running_rk45:
@@ -101,9 +102,9 @@ class riccati_observer():
             self.l = len(self.z)
             self.Q = np.diag(np.hstack([np.diag(self.q*np.eye(3)) for i in range(self.l)])) if self.l != 0 else np.array([])
 
-    def update_z_estFrame(self, landmarkGroundtruth):
+    def update_z_groundTruth(self, landmarkGroundtruth):
         if not self.running_rk45:
-            self.z_estFrame = landmarkGroundtruth
+            self.z_groundTruth = landmarkGroundtruth
 
     def update_linear_velocity(self, linear_velocity):
         if not self.running_rk45:
@@ -174,7 +175,7 @@ class riccati_observer():
         dir = np.matmul(np.transpose(input_rot), norm)
         return dir
 
-    def function_C(self):
+    def function_C(self, input_R_hat):
         '''
         Create the C maxtrix 
         Input = ...
@@ -182,13 +183,13 @@ class riccati_observer():
         '''
         # landmark = np.array([[2.5, 2.5, 1], [5, 0, 1], [0, 0, 1]])
         for landmark_idx in range(self.l):
-            d = -np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
+            d = np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
             first = self.function_Pi(d)
             # first = self.function_Pi(self.function_d(input_R, input_p, self.z[landmark_idx]))
             
             # S(R_hat.T x z) TODO: different from original
             # second = np.matmul(np.transpose(input_R_hat), np.array(landmark[landmark_idx])) 
-            second = np.array(self.z_estFrame[landmark_idx]) # self.function_S(np.matmul(np.transpose(input_R_hat), self.z[landmark_idx])) #TODO
+            second = self.function_S(np.matmul(np.transpose(input_R_hat), np.array(self.z_groundTruth[landmark_idx]))) # self.function_S(np.matmul(np.transpose(input_R_hat), self.z[landmark_idx])) #TODO
             final = -np.cross(first, second)
             C_landmark = np.hstack((final, first))
             if landmark_idx == 0:
@@ -204,6 +205,7 @@ class riccati_observer():
         return np.matmul(np.transpose(input_rot), input_p)
     
     def observer_equations(self, input_p_bar_hat, input_R_hat, input_P):
+        print("------------ \n ", self.linearVelocity, "\n------------")
         # self.observer_equations(input_p_bar_hat, input_R, input_R_hat, input_p, input_P)
         # landmark = np.array([[2.5, 2.5, 1], [5, 0, 1], [0, 0, 1]])
         if self.which_eq == 0:
@@ -221,13 +223,13 @@ class riccati_observer():
 
                 for landmark_idx in range(self.l):
                     #R_hat.T z #TODO: huh??? different from original
-                    first = np.array(self.z_estFrame[landmark_idx])
+                    first = np.matmul(np.transpose(input_R_hat), self.z_groundTruth[landmark_idx])
                     # first = np.matmul(np.transpose(input_R_hat), np.array(landmark[landmark_idx]))
                     #Pi_d
-                    d = -np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
+                    d = np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
                     Pi_d = self.function_Pi(d)
                     #(p_bar_hat - R_hat.T x z)
-                    second = -np.array(self.z_estFrame[landmark_idx])
+                    second = input_p_bar_hat - first
                     # q*
                     final += self.q*np.matmul(np.transpose(np.cross(first, Pi_d)), second)
                     # omega_hat second part lower
@@ -271,16 +273,16 @@ class riccati_observer():
                 final2 = np.transpose(np.array([0, 0, 0], dtype=np.float64))
                 for landmark_idx in range(self.l):
                     d = -np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
-                    d_bar_hat = np.array(self.z_estFrame[landmark_idx])/np.linalg.norm(self.z_estFrame[landmark_idx])
+                    d_bar_hat = np.array(self.z_groundTruth[landmark_idx])/np.linalg.norm(self.z_groundTruth[landmark_idx])
                     Pi_d_bar_hat = self.function_Pi(d_bar_hat)
                     # S(R_hat.T z) Pi_d_bar_hat 
-                    # first = np.cross(np.array(self.z_estFrame[landmark_idx]), Pi_d_bar_hat)
+                    # first = np.cross(np.array(self.z_groundTruth[landmark_idx]), Pi_d_bar_hat)
                     # print("cross \n", first)
-                    first = np.matmul(self.function_S(np.array(self.z_estFrame[landmark_idx])), Pi_d_bar_hat)
-                    # print("z est frame \n", np.array(self.z_estFrame[landmark_idx]))
-                    # print("S \n ", self.function_S(np.array(self.z_estFrame[landmark_idx])))
+                    first = np.matmul(self.function_S(np.array(self.z_groundTruth[landmark_idx])), Pi_d_bar_hat)
+                    # print("z est frame \n", np.array(self.z_groundTruth[landmark_idx]))
+                    # print("S \n ", self.function_S(np.array(self.z_groundTruth[landmark_idx])))
                     # |p_bar_hat - R_hat.T z| di
-                    second = (np.linalg.norm(self.z_estFrame[landmark_idx])*d).reshape((3,1))
+                    second = (np.linalg.norm(self.z_groundTruth[landmark_idx])*d).reshape((3,1))
                     final += np.matmul(first, second).reshape((3,))
 
                     # Pi_d_bar_hat
@@ -319,6 +321,16 @@ class riccati_observer():
         ############ Quaternion ############
         ####################################
 
+        ####################################
+        ############ rotation matrix ############
+        input_R_hat_flat, p_bar_hat_flat, input_P_flat = np.split(y, [9, 12])
+        input_R_hat = input_R_hat_flat.reshape((3,3))
+        # qua_hat_flat = qua_hat_flat/np.linalg.norm(qua_hat_flat)
+        # input_R = self.rodrigues_formula(qua_flat)
+        # input_R_hat = self.rodrigues_formula(qua_hat_flat)
+        ############ rotation matrix ############
+        ####################################
+
         # (self.k, z, self.q, self.Q, self.V, self.l)
 
         input_p_bar_hat = p_bar_hat_flat
@@ -326,7 +338,7 @@ class riccati_observer():
 
         input_A = self.function_A()
         if len(self.z) != 0:
-            input_C = self.function_C()
+            input_C = self.function_C(input_R_hat)
         ####################################
 
         ####################################
@@ -345,9 +357,16 @@ class riccati_observer():
             output_P_dot = np.matmul(input_A, input_P) + np.matmul(input_P, np.transpose(input_A)) + self.V
         p_bar_hat_dot = output_omega_hat_p_bar_hat_dot[3:]
 
+        omega_hat = output_omega_hat_p_bar_hat_dot[0:3]
+        ####################################
+        #################################### rotation matrix
+        output_R = np.matmul(input_R_hat, self.function_S(omega_hat)).flatten()
+        return np.concatenate((output_R, p_bar_hat_dot, output_P_dot.flatten()))
+        #################################### rotation matrix
+        ####################################
+
         ####################################
         ############ Quaternion ############
-        omega_hat = output_omega_hat_p_bar_hat_dot[0:3]
         omega_hat_4x4 = np.array([[0, -omega_hat[0], -omega_hat[1], -omega_hat[2]],
                                 [omega_hat[0], 0, omega_hat[2], -omega_hat[1]],
                                 [omega_hat[1], -omega_hat[2], 0, omega_hat[0]],

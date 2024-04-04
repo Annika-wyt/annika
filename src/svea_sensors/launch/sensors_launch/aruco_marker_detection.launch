@@ -16,14 +16,15 @@
         <param name="aruco_tf_name"     value="$(arg aruco_tf_name)"/>
     </node>
 
+    <include file="$(find svea_sensors)/launch/sensors_launch/camera.launch"></include>
+    
     <node if="$(eval map != '')" pkg="map_server" type="map_server" name="map_server" output="screen" args="/svea_ws/src/svea_core/maps/sml.yaml"/>
     
     <node pkg="tf2_ros" type="static_transform_publisher" name="odommap_broadcaster"    args="0 0 0 0 0 0 map odom" />   
     <node pkg="tf2_ros" type="static_transform_publisher" name="linkodom_broadcaster"    args="0 0 0 0 0 0 odom base_link" />   
     <node pkg="tf2_ros" type="static_transform_publisher" name="imulink_broadcaster"    args="0 0 0.1 0 0 0 base_link imu" />
     <node pkg="tf2_ros" type="static_transform_publisher" name="gpslink_broadcaster"    args="-0.058 -0.015  0.115 0 0 0 base_link gps" />
-    <node pkg="tf2_ros" type="static_transform_publisher" name="cameralink_broadcaster"    args="0.383 0.0 0.250 -1.57 0 -1.57 base_link camera" />    
-    <!-- for e-com-4k -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="cameralink_broadcaster"    args="0.480 0.0 0.155 -1.57 0 -1.57 base_link camera" />    
 
     <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco0_broadcaster"  args="0.1095 0 0.0585 0 0 1.57 map aruco0" />
     <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco1_broadcaster"  args="0.05475 0.095 0.0585 1.0472 0 1.57 map aruco1" />
@@ -34,5 +35,5 @@
 
     <node name="MocapAruco" pkg="svea_sensors" type="MocapAruco.py" output="screen"/>
     <!-- <node name="aruco_pose" pkg="svea_sensors" type="aruco_pose.py" output="screen"/> -->
-    <node name="p3p_process_data" pkg="svea_sensors" type="p3p_process_data.py" output="screen"/>
+    <!-- <node name="p3p_process_data" pkg="svea_sensors" type="p3p_process_data.py" output="screen"/> -->
 </launch>

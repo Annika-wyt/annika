@@ -57,8 +57,8 @@ class riccati_observer():
 
         self.dt = self.stepsize
 
-        self.soly = np.concatenate((self.Rot_hat.flatten(), self.p_bar_hat.flatten(), self.P_ricatti.flatten()))
-        # self.soly = np.concatenate((self.Lambda_bar_0.flatten(), self.p_bar_hat.flatten(), self.P_ricatti.flatten()))
+        # self.soly = np.concatenate((self.Rot_hat.flatten(), self.p_bar_hat.flatten(), self.P_ricatti.flatten()))
+        self.soly = np.concatenate((self.Lambda_bar_0.flatten(), self.p_bar_hat.flatten(), self.P_ricatti.flatten()))
 
         ################### initialization ###################
         ######################################################
@@ -205,7 +205,7 @@ class riccati_observer():
         return np.matmul(np.transpose(input_rot), input_p)
     
     def observer_equations(self, input_p_bar_hat, input_R_hat, input_P):
-        print("------------ \n ", self.linearVelocity, "\n------------")
+        # print("------------ \n ", self.linearVelocity, "\n------------")
         # self.observer_equations(input_p_bar_hat, input_R, input_R_hat, input_p, input_P)
         # landmark = np.array([[2.5, 2.5, 1], [5, 0, 1], [0, 0, 1]])
         if self.which_eq == 0:
@@ -213,7 +213,7 @@ class riccati_observer():
             first_upper = self.angularVelocity
             
             # -S(omega)p_bat_hat + v_bar
-            first_lower = -np.matmul(self.function_S(self.angularVelocity), input_p_bar_hat) + self.linearVelocity
+            first_lower = -np.matmul(self.function_S(self.angularVelocity), input_p_bar_hat) + self.add_bar(input_R_hat, self.linearVelocity)
             # first_lower = -np.cross(self.angularVelocity, input_p_bar_hat) + self.linearVelocity
             first_part = np.hstack((first_upper, first_lower))
             # omega_hat second part upper
@@ -316,18 +316,14 @@ class riccati_observer():
         ############ Quaternion ############
         qua_hat_flat, p_bar_hat_flat, input_P_flat = np.split(y, [4, 7])
         qua_hat_flat = qua_hat_flat/np.linalg.norm(qua_hat_flat)
-        # input_R = self.rodrigues_formula(qua_flat)
         input_R_hat = self.rodrigues_formula(qua_hat_flat)
         ############ Quaternion ############
         ####################################
 
         ####################################
         ############ rotation matrix ############
-        input_R_hat_flat, p_bar_hat_flat, input_P_flat = np.split(y, [9, 12])
-        input_R_hat = input_R_hat_flat.reshape((3,3))
-        # qua_hat_flat = qua_hat_flat/np.linalg.norm(qua_hat_flat)
-        # input_R = self.rodrigues_formula(qua_flat)
-        # input_R_hat = self.rodrigues_formula(qua_hat_flat)
+        # input_R_hat_flat, p_bar_hat_flat, input_P_flat = np.split(y, [9, 12])
+        # input_R_hat = input_R_hat_flat.reshape((3,3))
         ############ rotation matrix ############
         ####################################
 
@@ -360,8 +356,8 @@ class riccati_observer():
         omega_hat = output_omega_hat_p_bar_hat_dot[0:3]
         ####################################
         #################################### rotation matrix
-        output_R = np.matmul(input_R_hat, self.function_S(omega_hat)).flatten()
-        return np.concatenate((output_R, p_bar_hat_dot, output_P_dot.flatten()))
+        # output_R = np.matmul(input_R_hat, self.function_S(omega_hat)).flatten()
+        # return np.concatenate((output_R, p_bar_hat_dot, output_P_dot.flatten()))
         #################################### rotation matrix
         ####################################
 
@@ -423,21 +419,11 @@ class riccati_observer():
         success = False
         self.dt = self.stepsize
         while not success:
-            # args = (self.k, z, self.q, self.Q, self.V, self.l)
-            # y_next, next_time, new_dt, success = self.rk45_step(self.current_time, self.soly[-1], self.dt, args, self.tol, self.use_adaptive)
             y_next, next_time, new_dt, success = self.rk45_step()
             if success:
                 self.soly = y_next
                 self.solt = next_time
-                # self.solimage.append([self.current_time, self.show_measurement])
-                # self.solnumlandmark.append(self.l)
-                # end_time = systemtime.time()
-                # self.caltime.append(end_time - start_time)
-                # start_time = end_time
-                # self.current_time = next_time
-                # print("t", self.solt, "dt", self.dt, "next dt", new_dt )
-                # print("soly qua", self.soly[:4]) #w, x ,y ,z
-                # print("soly pose", self.soly[4:7])
+
                 self.running_rk45 = False
                 print('current_time', self.current_time, self.dt)
             else:

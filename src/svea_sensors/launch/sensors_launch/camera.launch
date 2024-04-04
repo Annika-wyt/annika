@@ -1,13 +1,19 @@
 <?xml version="1.0"?>
+<!--
+    IMU launch file
+-->
+
 <launch>
-    <!-- Argument for camera -->
-    <arg name="camera_device_id"        default="1"/>
-    <arg name="camera_info_file"        default="e_con_camera_4k.yaml"/>
-    
-    <!-- Nodes -->
-    <node name="camera" pkg="cv_camera" type="cv_camera_node" output="screen">
-        <param name="camera_info_url"   value="file://$(find svea_sensors)/params/robot_localization/$(arg camera_info_file)" />
-        <param name="rate"              value="60.0"/>
-        <param name="device_id"         value="$(arg camera_device_id)"/>
+    <!-- Launch file arguments -->
+    <arg name="imu_device" default="/dev/i2c-1" />
+    <arg name="imu_address" default="40" />
+    <arg name="imu_frame_id" default="imu" />
+
+    <node ns="imu" name="imu_node" pkg="svea_sensors" type="bno055_i2c_node" respawn="true" respawn_delay="2">
+        <param name="device"                    value="$(arg imu_device)" />
+        <param name="address"   type="int"      value="$(arg imu_address)"/>
+        <param name="frame_id"  type="string"   value="$(arg imu_frame_id)"/>
+        <remap from="/imu/data" to="/imu/data_raw_old" />
+        <remap from="/imu/mag" to="/imu/mag_old" />
     </node>
 </launch>

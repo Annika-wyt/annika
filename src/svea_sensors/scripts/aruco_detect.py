@@ -52,7 +52,7 @@ class aruco_detect:
         ## Publishers
         # self.pub_aruco_pose = rospy.Publisher(self.PUB_ARUCO_POSE, MarkerArray, queue_size=5)
         self.pub_aruco_marker = rospy.Publisher('/aruco/marker', VM, queue_size=5)
-        self.pub_aruco_marker_coordinate = rospy.Publisher('/aruco/2Ddetection', ArucoArray, queue_size=5)
+        self.pub_aruco_marker_coordinate = rospy.Publisher('/aruco/detection', ArucoArray, queue_size=5)
         self.image_pub = rospy.Publisher('/your_modified_image_topic', Image, queue_size=10)
         # rospy.loginfo(self.PUB_ARUCO_POSE)
 
@@ -141,7 +141,7 @@ class aruco_detect:
                     arucoPose.header = image.header
                     arucoPose.pose.position = Point(*translation)
                     arucoPose.pose.orientation = Quaternion(*rotation)
-                    transform_aruco_map = self.buffer.lookup_transform("map", 'camera', image.header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
+                    transform_aruco_map = self.buffer.lookup_transform("base_link", 'camera', image.header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
                     position = tf2_geometry_msgs.do_transform_pose(arucoPose, transform_aruco_map) 
                     # print("arucoPose", arucoPose)
 
@@ -171,8 +171,8 @@ class aruco_detect:
                     marker.pose.pose.orientation = position.pose.orientation
                     marker.confidence = 1 # NOTE: Set this to something more relevant?
                     aruco_msg.marker = marker
-                    aruco_msg.marker.pose.pose.position = Vector3(*[0, 0, 0])
-                    aruco_msg.marker.pose.pose.orientation = Quaternion(*[0, 0, 0, 1])
+                    # aruco_msg.marker.pose.pose.position = Vector3(*translation)
+                    # aruco_msg.marker.pose.pose.orientation = Quaternion(*rotation)
                     
                     Vmarker = VM()
                     Vmarker.header = position.header

@@ -35,7 +35,7 @@ class velocity_change_frame():
         # self.TwistPub.publish(odommsg)
 
         try:
-            transform_base_map = self.buffer.lookup_transform(self.svea_frame_name, "mocap", rospy.Time.now(), rospy.Duration(0.5))
+            transform_base_map = self.buffer.lookup_transform(self.svea_frame_name, "mocap", rospy.Time(), rospy.Duration(0.5))
             transMsg = Vector3Stamped()
             transMsg.header = VelMsg.header
             transMsg.vector = VelMsg.twist.linear
@@ -47,11 +47,11 @@ class velocity_change_frame():
             odommsg.header.frame_id = "map"
             odommsg.child_frame_id = "base_link"
             odommsg.twist.twist.linear = trans_linear
-            odommsg.twist.twist.angular = trans_angular
+            odommsg.twist.twist.angular = VelMsg.twist.angular
             self.TwistPub.publish(odommsg)
         except:
             try:
-                transform_base_map = self.buffer.lookup_transform(self.svea_frame_name, "mocap", rospy.Time.now(), rospy.Duration(0.5))
+                transform_base_map = self.buffer.lookup_transform(self.svea_frame_name, "mocap", rospy.Time(), rospy.Duration(0.5))
                 transMsg = Vector3Stamped()
                 transMsg.header = VelMsg.header
                 transMsg.vector = VelMsg.twist.linear
@@ -61,9 +61,11 @@ class velocity_change_frame():
                 odommsg = Odometry()
                 odommsg.header = VelMsg.header
                 odommsg.header.frame_id = "map"
+                odommsg.child_frame_id = "base_link"
                 odommsg.twist.twist.linear = trans_linear
-                odommsg.twist.twist.angular = trans_angular
+                odommsg.twist.twist.angular = VelMsg.twist.angular
                 self.TwistPub.publish(odommsg)
+                print("send")
             except Exception as e:
                 rospy.logerr(f"Velocity change frame node: {e}")
 

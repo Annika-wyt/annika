@@ -89,12 +89,15 @@ class riccati_observer():
             self.angularVelocity = angular
             self.linearVelocity = linear
             self.current_time = current_time
-            if len(landmark) != 0:
-                self.z = landmark
-                self.l = len(self.z)
+            # if len(landmark) != 0:
+            self.z = landmark
+            self.l = len(self.z)
+            if len(landmark) == 0:
+                self.Q = []
+            else:
                 self.Q = np.diag(np.hstack([np.diag(self.q*np.eye(3)) for i in range(self.l)])) if self.l != 0 else np.array([])
-            if len(landmarkGroundTruth) != 0:
-                self.z_groundTruth = landmarkGroundTruth
+            # if len(landmarkGroundTruth) != 0:
+            self.z_groundTruth = landmarkGroundTruth
 
     def update_z(self, landmark):
         if not self.running_rk45:
@@ -182,20 +185,23 @@ class riccati_observer():
         Output = num_landmark*3x6 matrix
         '''
         # landmark = np.array([[2.5, 2.5, 1], [5, 0, 1], [0, 0, 1]])
-        for landmark_idx in range(self.l):
-            d = np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
-            first = self.function_Pi(d)
-            # first = self.function_Pi(self.function_d(input_R, input_p, self.z[landmark_idx]))
-            
-            # S(R_hat.T x z) TODO: different from original
-            # second = np.matmul(np.transpose(input_R_hat), np.array(landmark[landmark_idx])) 
-            second = self.function_S(np.matmul(np.transpose(input_R_hat), np.array(self.z_groundTruth[landmark_idx]))) # self.function_S(np.matmul(np.transpose(input_R_hat), self.z[landmark_idx])) #TODO
-            final = -np.cross(first, second)
-            C_landmark = np.hstack((final, first))
-            if landmark_idx == 0:
-                output_C = C_landmark
-            else:
-                output_C = np.vstack((output_C, C_landmark))
+        if self.l != 0:
+            for landmark_idx in range(self.l):
+                d = np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
+                first = self.function_Pi(d)
+                # first = self.function_Pi(self.function_d(input_R, input_p, self.z[landmark_idx]))
+                
+                # S(R_hat.T x z) TODO: different from original
+                # second = np.matmul(np.transpose(input_R_hat), np.array(landmark[landmark_idx])) 
+                second = self.function_S(np.matmul(np.transpose(input_R_hat), np.array(self.z_groundTruth[landmark_idx]))) # self.function_S(np.matmul(np.transpose(input_R_hat), self.z[landmark_idx])) #TODO
+                final = -np.cross(first, second)
+                C_landmark = np.hstack((final, first))
+                if landmark_idx == 0:
+                    output_C = C_landmark
+                else:
+                    output_C = np.vstack((output_C, C_landmark))
+        else: 
+            output_C = []
         return output_C
 
     def add_bar(self, input_rot, input_p):

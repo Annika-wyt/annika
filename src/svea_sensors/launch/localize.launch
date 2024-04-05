@@ -8,19 +8,19 @@
 
     <!-- Main argument -->
     <arg name="is_sim"                  default="false"/>
-    <arg name="is_indoors"              default="true" />
+    <arg name="is_indoors"              default="false" />
     <arg name="initial_pose_x"          default="0.0" />
     <arg name="initial_pose_y"          default="0.0" />
     <arg name="initial_pose_a"          default="0.0" />
 
     <!-- low-level interface (serial) -->
-    <arg name="start_serial"            default="false" /> 
+    <arg name="start_serial"            default="true" /> 
     <!-- Should be set to true, if only the localization is running 
     (i.e. this is needed in order to have wheel encoders and actuation_to_twist working) -->
     <arg name="lli_port"                default="/dev/ttyACM0"/>
 
     <!-- map server -->
-    <arg name="map_file"                default=""/>
+    <arg name="map_file"                default="/home/annika/ITRL/kth_thesis/src/svea_core/maps/sml.yaml"/>
 
     <!-- Lidar  -->
     <arg name="lidar_ip"                default="192.168.3.11" />
@@ -45,7 +45,7 @@
     <arg name="camera_info_file"        default="e_con_camera_4k.yaml"/>
 
     <!-- Aruco -->
-    <arg name="detect_aruco"            default="true"/>
+    <arg name="detect_aruco"            default="false"/>
     <arg name="camera_image_topic"      default="/camera/image_raw"/>
     <arg name="camera_info_topic"       default="/camera/camera_info"/>
     <arg name="aruco_size"              default="0.1"/>

@@ -29,7 +29,7 @@ class MocapAruco:
         MocapAruco13 = Subscriber('/qualisys/aruco13/pose', PoseStamped)
         MocapAruco14 = Subscriber('/qualisys/aruco14/pose', PoseStamped)
         MocapAruco15 = Subscriber('/qualisys/aruco15/pose', PoseStamped)
-        sync = ApproximateTimeSynchronizer([MocapAruco10, MocapAruco11, MocapAruco12, MocapAruco13, MocapAruco15], queue_size=1, slop=10)
+        sync = ApproximateTimeSynchronizer([MocapAruco10, MocapAruco11, MocapAruco12, MocapAruco13, MocapAruco15], queue_size=1, slop=2)
         sync.registerCallback(self.GroundtruthCallback)
 
         # Publisher

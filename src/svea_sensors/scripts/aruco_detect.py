@@ -222,7 +222,7 @@ class aruco_detect:
                 Vmarker.scale = Vector3(*[0.1, 0.1, 0.1])
                 Vmarker.color = ColorRGBA(*[0, 1, 0, 1])
                 markerArray.markers.append(marker)
-                CoorArray.arucos.append(aruco_msg)
+                # CoorArray.arucos.append(aruco_msg)
                 self.pub_aruco_marker.publish(Vmarker)
 
         self.pub_aruco_marker_coordinate.publish(CoorArray)

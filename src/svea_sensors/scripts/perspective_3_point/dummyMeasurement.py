@@ -18,7 +18,7 @@ AveAll = True
 class dummyMeasurement():
     def __init__(self):
         rospy.init_node("dummyMeasurement")
-        self.svea_frame_name = "svea2"
+        self.svea_frame_name = "base_link"
 
         OdomTopic = Subscriber("/qualisys/" + self.svea_frame_name + "/odom", Odometry)
         VelTopic = Subscriber("/qualisys/" + self.svea_frame_name + "/velocity", TwistStamped)
@@ -33,7 +33,7 @@ class dummyMeasurement():
             self.angularZRunningAvg = 0
         self.alpha = 2/(20+1)
         self.alphaAng = 2/(30+1)
-        self.landmarkPub = rospy.Publisher("/aruco/detection/groundtruth", ArucoArray, queue_size=1) #map frame
+        self.landmarkPub = rospy.Publisher("/aruco/detection/Groundtruth", ArucoArray, queue_size=1) #map frame
         self.landmark2Pub = rospy.Publisher("/aruco/detection", ArucoArray, queue_size=1) #svea2 frame; actual direction
         self.twistPub = rospy.Publisher("/odometry/filtered", Odometry, queue_size=1)
         self.seq = 0
@@ -54,9 +54,10 @@ class dummyMeasurement():
             self.ori = sim_solution[:,0:4]
             self.pose = sim_solution[:,4:7]
             self.sim_time = sim_solution[:,-1]
-
-        self.landmarkId = np.array([12, 13, 14, 15, 16, 17, 18])
-        landmark_pose = np.array([[1.5, 0.5, 0], [-1.5, -0.5, 0], [0.5, 1.5, 0], [-0.5, 1.5, 0], [1.5, -0.5, 0], [-1, 1, 0], [1, -1, 0]])
+        z=1
+        self.landmarkId = np.array([10, 11, 12, 15, 18])
+        # landmark_pose = np.array([[-1.74, -2.34, 0.046], [-1.80, -1.85, 0.06], [-2, -2.2, 0.16], [1.5, 0.5, 1], [-1, 1, 0.5], [1, -1, 0]])
+        landmark_pose = np.array([[-1.7, -2.3, 0.1], [-1.8, -2.1, 0.1], [-2, -2, 0.7]]) #, [-1.8, -1.9, 1], [-2, -2.2, 0.2]])
         self.landmarkPose = []
         for lId, lpose in zip(self.landmarkId, landmark_pose):
             lm = PoseStamped()
@@ -75,7 +76,8 @@ class dummyMeasurement():
 
     def OdomVelCallback(self, Odommsg, Velmsg):
         try:
-            transform_base_map = self.buffer.lookup_transform(self.svea_frame_name, "map", Odommsg.header.stamp, rospy.Duration(0.5))
+            self.publishBaselink(Odommsg)
+            transform_base_map = self.buffer.lookup_transform(self.svea_frame_name, "map", rospy.Time(), rospy.Duration(0.5))
             transMsg = Vector3Stamped()
             print("transform_base_map", transform_base_map)
             transMsg.header = Velmsg.header
@@ -83,7 +85,6 @@ class dummyMeasurement():
             print("tf2", tf2_geometry_msgs.do_transform_vector3(transMsg, transform_base_map))
             trans_linear = tf2_geometry_msgs.do_transform_vector3(transMsg, transform_base_map).vector
             self.publishTwist(Velmsg, trans_linear)   
-            self.publishBaselink(Odommsg)
         except Exception as e:
             print(e)
     def run(self):
@@ -145,10 +146,11 @@ class dummyMeasurement():
             msg.transform.translation = Vector3(*[5, 0, 10])
             msg.transform.rotation = Quaternion(*[0, 0, 0, 1]) #x, y, z, w
         elif self.motion == "linear":
-            # msg.transform.translation = Vector3(*[5+2.5*np.cos(0.4*self.current_time)*np.cos(np.deg2rad(45)), 5+2.5*np.cos(0.4*self.current_time)*np.sin(np.deg2rad(45)), 0])
-            msg.transform.translation = Vector3(0, *[5+2.5*np.cos(0.4*self.current_time), 0])
-            # rotation = np.array([0, 0, -1.25, 0.5])
-            rotation = np.array([0, 0, -0.5, 0.5])
+            # msg.transform.translation = Vector3(*[-1/0.4*np.cos(0.4*self.current_time) + 1/0.4, 0, 0])
+            # rotation = np.array([0, 0, 0, 0.5])
+
+            msg.transform.translation = Vector3(*[0, -1/0.4*np.cos(0.4*self.current_time) + 1/0.4,0])
+            rotation = np.array([0, 0, 0.5, 0.5])
             rotation /= np.linalg.norm(rotation)
             msg.transform.rotation = Quaternion(*rotation) #x, y, z, w
         elif self.motion == "angular":
@@ -160,9 +162,8 @@ class dummyMeasurement():
             msg.transform.rotation = Quaternion(*[0, 0, 0, 1]) #x, y, z, w
             # msg.transform.rotation = Quaternion(*[0, 0, np.sin(0.3*self.current_time/2), np.cos(0.3*self.current_time/2)]) #x, y, z, w
         elif self.motion == "bag":
-            return 
-            # msg.transform.translation = odomMsg.pose.pose.position
-            # msg.transform.rotation = odomMsg.pose.pose.orientation #x, y, z, w
+            msg.transform.translation = odomMsg.pose.pose.position
+            msg.transform.rotation = odomMsg.pose.pose.orientation #x, y, z, w
         elif self.motion == "test":
             print(self.pose[self.stepCounter])
             print(self.ori[self.stepCounter])
@@ -170,7 +171,6 @@ class dummyMeasurement():
             msg.transform.translation = Vector3(*self.pose[self.stepCounter])
             msg.transform.rotation = Quaternion(*self.ori[self.stepCounter]) #x, y, z, w
             self.stepCounter += 1
-
         self.br.sendTransform(msg)
 
     def publishAruco(self):
@@ -196,7 +196,7 @@ class dummyMeasurement():
         arucoArrayMsg2.header.frame_id = self.frame
 
         try:
-            transform_map_baselink = self.buffer.lookup_transform(self.svea_frame_name,"map", self.time, rospy.Duration(0.5))  #rospy.Time.now()
+            transform_map_baselink = self.buffer.lookup_transform(self.svea_frame_name,"map", rospy.Time(), rospy.Duration(0.5))  #rospy.Time.now()
 
             for id, landmark in zip(self.landmarkId, self.landmarkPose):
                 position = tf2_geometry_msgs.do_transform_pose(landmark, transform_map_baselink) 

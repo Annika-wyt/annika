@@ -217,10 +217,13 @@ class riccati_observer():
         if self.which_eq == 0:
             # omega
             first_upper = self.angularVelocity
+            # first_upper = self.add_bar(input_R_hat, self.angularVelocity)
             
             # -S(omega)p_bat_hat + v_bar
-            first_lower = -np.matmul(self.function_S(self.angularVelocity), input_p_bar_hat) + self.add_bar(input_R_hat, self.linearVelocity)
-            # first_lower = -np.cross(self.angularVelocity, input_p_bar_hat) + self.linearVelocity
+            # first_lower = -np.matmul(self.function_S(self.angularVelocity), input_p_bar_hat) + self.add_bar(input_R_hat, self.linearVelocity)
+            first_lower = -np.cross(self.angularVelocity, input_p_bar_hat) + self.linearVelocity
+            # first_lower = -np.cross(self.add_bar(input_R_hat, self.angularVelocity), input_p_bar_hat) + self.linearVelocity
+            # print("linear chaned frame ", self.add_bar(input_R_hat, self.linearVelocity))
             first_part = np.hstack((first_upper, first_lower))
             # omega_hat second part upper
             if len(self.z) != 0:

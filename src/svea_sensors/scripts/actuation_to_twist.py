@@ -114,7 +114,7 @@ class Republish():
         self._actuation_values.ctrl_msg = ctrl_msg
 
     def _detect_reverse_state(self, msg):
-        dead_zone = 5 # velocities with abs values <= than this = 0 to ESC
+        dead_zone = 15 # velocities with abs values <= than this = 0 to ESC
         velocity = msg.velocity
         previous_velocity = self._actuation_values.velocity
         if velocity > dead_zone or previous_velocity == -128:
@@ -157,7 +157,7 @@ class Republish():
         """Convert steering actuation value to radians"""
         steering = float(steering)
         steer_percent = steering/127.0 * self.max_steering_angle
-        steer_percent = -steer_percent  # steering flipped
+        # steer_percent = -steer_percent  # steering flipped
         return steer_percent
 
     def _vel_actuation_to_mps(self, vel_actuation):

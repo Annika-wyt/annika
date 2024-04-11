@@ -37,6 +37,8 @@ class aruco_detect:
         self.ARUCO_TF_NAME = rospy.get_param('~aruco_tf_name', 'arucoCamera')
         self.PUB_ARUCO_POSE = rospy.get_param('~pub_aruco_pose', '/aruco/pose')
 
+
+        self.base_link = "svea2"
         ## Aruco
 
         self.aruco_size = float(self.ARUCO_SIZE)
@@ -141,7 +143,7 @@ class aruco_detect:
                     arucoPose.header = image.header
                     arucoPose.pose.position = Point(*translation)
                     arucoPose.pose.orientation = Quaternion(*rotation)
-                    transform_aruco_map = self.buffer.lookup_transform("base_link", 'camera', image.header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
+                    transform_aruco_map = self.buffer.lookup_transform(self.base_link, 'camera', image.header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
                     position = tf2_geometry_msgs.do_transform_pose(arucoPose, transform_aruco_map) 
                     # print("arucoPose", arucoPose)
 

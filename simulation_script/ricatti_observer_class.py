@@ -475,8 +475,7 @@ class riccati_observer():
 
     def dynamics(self, t, y, input_k, input_z, input_q, input_Q, input_V, with_noise, num_landmarks, which_eq, quaternion, which_omega):
         # pose
-        input_p = np.transpose(np.array([[5, 0, 10]]))
-        # input_p = np.transpose(np.array([[2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10]]))
+        input_p = np.transpose(np.array([[2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10]]))
     
         ####################################
         ########### Measurements ###########
@@ -487,21 +486,17 @@ class riccati_observer():
             input_v = np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]])) + b_v
             # angular velocity
             if which_omega == "z":
-                pass
-                # input_omega = np.transpose(np.array([[0 ,0 , 0.6*t]])) + b_omega
+                input_omega = np.transpose(np.array([[0 ,0 , 0.6*t]])) + b_omega
             elif which_omega == "full":
-                pass
-                # input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]])) + b_omega
+                input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]])) + b_omega
         else:
             # velocity
-            input_v = np.transpose(np.array([[0, 0, 0]])) #np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]]))
+            input_v = np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]]))
             # angular velocity
             if which_omega == "z":
-                # input_omega = np.transpose(np.array([[0, 0, 0.6*0]]))
-                pass
+                input_omega = np.transpose(np.array([[0, 0, 0.6*t]]))
             elif which_omega == "full":
-                input_omega = np.transpose(np.array([[0, 0, 0.3]]))
-                # input_omega = np.transpose(np.array([[0.1*np.sin(0), 0.4*np.cos(2*0), 0.6*0]]))
+                input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]]))
         ########### Measurements ###########
         ####################################
 

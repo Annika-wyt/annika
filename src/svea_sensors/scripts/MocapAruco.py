@@ -12,7 +12,7 @@ from svea_msgs.msg import Aruco, ArucoArray
 import tf2_geometry_msgs
 from message_filters import Subscriber, ApproximateTimeSynchronizer
 
-ARUCOLIST = [10,11,12,13,15]
+ARUCOLIST = [10,11,12,13,14,15]
 
 class MocapAruco:
     def __init__(self):
@@ -29,7 +29,7 @@ class MocapAruco:
         MocapAruco13 = Subscriber('/qualisys/aruco13/pose', PoseStamped)
         MocapAruco14 = Subscriber('/qualisys/aruco14/pose', PoseStamped)
         MocapAruco15 = Subscriber('/qualisys/aruco15/pose', PoseStamped)
-        sync = ApproximateTimeSynchronizer([MocapAruco10, MocapAruco11, MocapAruco12, MocapAruco13, MocapAruco15], queue_size=1, slop=2)
+        sync = ApproximateTimeSynchronizer([MocapAruco10, MocapAruco11, MocapAruco12, MocapAruco13, MocapAruco14, MocapAruco15], queue_size=1, slop=2)
         sync.registerCallback(self.GroundtruthCallback)
 
         # Publisher
@@ -43,7 +43,7 @@ class MocapAruco:
     def run(self):
         rospy.spin()
 
-    def GroundtruthCallback(self, MA10msg, MA11msg, MA12msg, MA13msg, MA15msg):
+    def GroundtruthCallback(self, MA10msg, MA11msg, MA12msg, MA13msg, MA14msg, MA15msg):
         arucoarray = ArucoArray()
         for marker in ARUCOLIST: 
             ArucoGroundtruth = Aruco()

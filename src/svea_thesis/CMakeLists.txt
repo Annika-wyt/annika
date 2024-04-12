@@ -114,7 +114,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-   INCLUDE_DIRS include
+  #  INCLUDE_DIRS include
    #LIBRARIES noetic_tf2_ros
    CATKIN_DEPENDS geometry_msgs nav_msgs svea_msgs robot_localization roscpp rospy tf2 tf2_ros tf_conversions aruco_msgs cv_camera
 #  DEPENDS system_lib

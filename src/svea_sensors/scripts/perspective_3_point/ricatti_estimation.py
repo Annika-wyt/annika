@@ -73,7 +73,7 @@ class ricatti_estimation():
         # self.estori = np.array([0, 0, -0.5, 0.5], dtype=np.float64) #x, y, z, w
         self.estpose = np.array([0, 0, 0], dtype=np.float64)
         # self.estori = np.array([0.5, 0, 0, 0], dtype=np.float64) #w, x, y, z
-        self.estori = np.array([0.5, 0, 0, -0.5], dtype=np.float64) #w, x, y, z
+        self.estori = np.array([0, 0, 0, -0.5], dtype=np.float64) #w, x, y, z
         self.initpose = self.estpose
         self.estori /= np.linalg.norm(self.estori)
         self.initori = self.estori #w, x, y, z

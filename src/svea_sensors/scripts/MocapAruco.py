@@ -22,15 +22,28 @@ class MocapAruco:
         # Parameters
         self.debugMode = rospy.get_param('~debugMode', True)
 
+        self.header = None
+        self.seq = 0
+        self.arucoMsg = {
+            "10" : None,
+            "11" : None,
+            "12" : None,
+            "13" : None,
+            "14" : None,
+            "15" : None
+        }
+
+        self.publishing = False
+
         # Subscriber
-        MocapAruco10 = Subscriber('/qualisys/aruco10/pose', PoseStamped)
-        MocapAruco11 = Subscriber('/qualisys/aruco11/pose', PoseStamped)
-        MocapAruco12 = Subscriber('/qualisys/aruco12/pose', PoseStamped)
-        MocapAruco13 = Subscriber('/qualisys/aruco13/pose', PoseStamped)
-        MocapAruco14 = Subscriber('/qualisys/aruco14/pose', PoseStamped)
-        MocapAruco15 = Subscriber('/qualisys/aruco15/pose', PoseStamped)
-        sync = ApproximateTimeSynchronizer([MocapAruco10, MocapAruco11, MocapAruco12, MocapAruco13, MocapAruco14, MocapAruco15], queue_size=1, slop=2)
-        sync.registerCallback(self.GroundtruthCallback)
+        MocapAruco10 = rospy.Subscriber('/qualisys/aruco10/pose', PoseStamped, self.arucoCallback, callback_args="10")
+        MocapAruco11 = rospy.Subscriber('/qualisys/aruco11/pose', PoseStamped, self.arucoCallback, callback_args="11")
+        MocapAruco12 = rospy.Subscriber('/qualisys/aruco12/pose', PoseStamped, self.arucoCallback, callback_args="12")
+        MocapAruco13 = rospy.Subscriber('/qualisys/aruco13/pose', PoseStamped, self.arucoCallback, callback_args="13")
+        MocapAruco14 = rospy.Subscriber('/qualisys/aruco14/pose', PoseStamped, self.arucoCallback, callback_args="14")
+        MocapAruco15 = rospy.Subscriber('/qualisys/aruco15/pose', PoseStamped, self.arucoCallback, callback_args="15")
+        # sync = ApproximateTimeSynchronizer([MocapAruco10, MocapAruco11, MocapAruco12, MocapAruco13, MocapAruco14, MocapAruco15], queue_size=1, slop=2)
+        # sync.registerCallback(self.GroundtruthCallback)
 
         # Publisher
         self.MapArucoPub = rospy.Publisher('/aruco/detection/Groundtruth', ArucoArray, queue_size=1)    
@@ -41,7 +54,46 @@ class MocapAruco:
         self.br = tf2_ros.TransformBroadcaster()
         
     def run(self):
-        rospy.spin()
+        while not rospy.is_shutdown():
+            self.publishAruco()
+            rospy.sleep(20)
+
+    def publishAruco(self):
+        self.publishing = True
+        arucoarray = ArucoArray()
+        for topic_name, position in self.arucoMsg.items():
+            if position != None:
+                ArucoGroundtruth = Aruco()
+                ArucoGroundtruth.marker.header = self.header
+                ArucoGroundtruth.marker.id = int(topic_name)
+                ArucoGroundtruth.marker.pose.pose.position = Point(*position[:3])
+                ArucoGroundtruth.marker.pose.pose.orientation = Quaternion(*position[3:])
+                ArucoGroundtruth.marker.pose.covariance = self.FillCovaraince()
+                if self.debugMode:
+                    self.debug(ArucoGroundtruth.marker)
+                    # print(aruco.marker.id)
+                    # print(MapAruco)
+                arucoarray.arucos.append(ArucoGroundtruth)
+                self.arucoMsg[topic_name] = None
+            if self.header != None:
+                arucoarray.header = self.header
+            else:
+                arucoarray.header.stamp = rospy.Time.now()
+            arucoarray.header.seq = self.seq
+            self.seq += 1
+            arucoarray.header.frame_id = "map"
+            self.MapArucoPub.publish(arucoarray)
+        self.publishing = False
+
+    def arucoCallback(self, msg, topic_name):
+        if not self.publishing:
+            try:
+                MapMocapTransform = self.buffer.lookup_transform('map', 'mocap', msg.header.stamp, rospy.Duration(0.5))
+                MapAruco = tf2_geometry_msgs.do_transform_pose(msg, MapMocapTransform)
+                self.header = msg.header
+            except Exception as e:
+                rospy.logerr(f'{e}')
+            self.arucoMsg[topic_name] = [MapAruco.pose.position.x, MapAruco.pose.position.y, MapAruco.pose.position.z, MapAruco.pose.orientation.x, MapAruco.pose.orientation.y, MapAruco.pose.orientation.z, MapAruco.pose.orientation.w]
 
     def GroundtruthCallback(self, MA10msg, MA11msg, MA12msg, MA13msg, MA14msg, MA15msg):
         arucoarray = ArucoArray()

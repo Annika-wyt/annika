@@ -2,7 +2,7 @@
 <launch>
     <!-- Argument for camera -->
     <arg name="camera_device_id"        default="1"/>
-    <arg name="camera_info_file"        default="e_con_camera_4k.yaml"/>
+    <arg name="camera_info_file"        default="usbc_web_camera.yaml"/>
     
     <!-- Nodes -->
     <node name="camera" pkg="cv_camera" type="cv_camera_node" output="screen">

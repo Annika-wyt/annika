@@ -186,20 +186,27 @@ class riccati_observer():
         '''
         # landmark = np.array([[2.5, 2.5, 1], [5, 0, 1], [0, 0, 1]])
         if self.l != 0:
-            for landmark_idx in range(self.l):
-                d = np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
-                first = self.function_Pi(d)
-                # first = self.function_Pi(self.function_d(input_R, input_p, self.z[landmark_idx]))
-                
-                # S(R_hat.T x z) TODO: different from original
-                # second = np.matmul(np.transpose(input_R_hat), np.array(landmark[landmark_idx])) 
-                second = self.function_S(np.matmul(np.transpose(input_R_hat), np.array(self.z_groundTruth[landmark_idx]))) # self.function_S(np.matmul(np.transpose(input_R_hat), self.z[landmark_idx])) #TODO
-                final = -np.cross(first, second)
-                C_landmark = np.hstack((final, first))
-                if landmark_idx == 0:
-                    output_C = C_landmark
-                else:
-                    output_C = np.vstack((output_C, C_landmark))
+            try:
+                for landmark_idx in range(self.l):
+                    d = np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
+                    first = self.function_Pi(d)
+                    # first = self.function_Pi(self.function_d(input_R, input_p, self.z[landmark_idx]))
+
+                    # S(R_hat.T x z) TODO: different from original
+                    # second = np.matmul(np.transpose(input_R_hat), np.array(landmark[landmark_idx])) 
+                    second = self.function_S(np.matmul(np.transpose(input_R_hat), np.array(self.z_groundTruth[landmark_idx]))) # self.function_S(np.matmul(np.transpose(input_R_hat), self.z[landmark_idx])) #TODO
+                    final = -np.cross(first, second)
+                    C_landmark = np.hstack((final, first))
+                    if landmark_idx == 0:
+                        output_C = C_landmark
+                    else:
+                        output_C = np.vstack((output_C, C_landmark))
+            except Exception as e:
+                print(f"OPS, function C {e}")
+                output_C = []
+                self.l = 0
+                self.z = []
+                self.z_groundTruth = []
         else: 
             output_C = []
         return output_C

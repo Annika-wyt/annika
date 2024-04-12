@@ -133,8 +133,8 @@ class WheelEncoder():
                  encoder_topic='lli/encoder',
                  direction_topic='',
                  axle_track=199.0,
-                 wheel_radius=60.0,
-                 ticks_per_revolution=60,
+                 wheel_radius=50.0,
+                 ticks_per_revolution=80,
                  linear_covariance=0.2,
                  angular_covariance=0.4,
                  ):
@@ -213,9 +213,9 @@ class WheelEncoder():
         self.linear_velocity = (right_wheel_velocity + left_wheel_velocity)/2
         self.linear_velocity *= direction
         # Angular velocity
-        angular_velocity = (right_wheel_velocity - left_wheel_velocity)
+        angular_velocity = (left_wheel_velocity - right_wheel_velocity)
         angular_velocity /= self.axle_track
-        # angular_velocity *= direction
+        angular_velocity *= direction
         self.angular_velocity = angular_velocity
         for cb in self.callbacks:
             cb(self)
@@ -228,7 +228,7 @@ class WheelEncoder():
         elif velocity < direction_epsilon:
             self.direction = -1
         else:
-            self.directions = 0
+            self.direction = 0
 
     def _calc_wheel_velocity(self, ticks, time_delta):
         if time_delta == 0:

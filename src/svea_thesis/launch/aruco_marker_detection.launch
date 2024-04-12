@@ -8,7 +8,7 @@
     <arg name="aruco_tf_name"           default="arucoCamera"/>
 
     <!-- Nodes -->
-    <node name="aruco_detect" pkg="svea_sensors" type="aruco_detect.py" output="screen">
+    <node name="aruco_detect" pkg="svea_thesis" type="aruco_detect.py" output="screen">
         <param name="sub_image"         value="$(arg camera_image_topic)"/>
         <param name="camera_info"       value="$(arg camera_info_topic)"/>
         <param name="aruco_dict"        value="$(arg aruco_dict)"/>
@@ -17,7 +17,7 @@
     </node>
 
     <!-- <include file="$(find svea_sensors)/launch/localize.launch"></include> -->
-    <include file="$(find svea_sensors)/launch/sensors_launch/camera.launch"></include>
+    <include file="$(find svea_thesis)/launch/camera.launch"></include>
     <include file="$(find svea_sensors)/launch/sensors_launch/controller.launch"></include>
     
     <node if="$(eval map != '')" pkg="map_server" type="map_server" name="map_server" output="screen" args="/svea_ws/src/svea_core/maps/sml.yaml"/>
@@ -36,7 +36,7 @@
     <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco4_broadcaster"  args="-0.05475 -0.095 0.0585 4.18879 0 1.57 map aruco4" />
     <node pkg="tf2_ros" type="static_transform_publisher" name="maparuco5_broadcaster"  args="0.05475 -0.095 0.0585 5.23599 0 1.57 map aruco5" /> -->
 
-    <node name="MocapAruco" pkg="svea_sensors" type="MocapAruco.py" output="screen"/>
+    <node name="MocapAruco" pkg="svea_thesis" type="MocapAruco.py" output="screen"/>
     <!-- <node name="aruco_pose" pkg="svea_sensors" type="aruco_pose.py" output="screen"/> -->
     <!-- <node name="p3p_process_data" pkg="svea_sensors" type="p3p_process_data.py" output="screen"/> -->
 </launch>

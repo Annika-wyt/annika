@@ -19,6 +19,15 @@ from visualization_msgs.msg import Marker as VM
 from visualization_msgs.msg import MarkerArray as VMA
 
 WITH_LANDMARK = True
+
+ERROR_MSG = {-1:"No error",
+             0: "Algined source points",
+             1: "Three source points: moving orthogonal to source points plane and through",
+             2: "Three source points: motionless C in danger cylinder",
+             3: "Three source points: moving on danger cylinder but not along any lines (weak)",
+             4: "Four + source points: on horopter curve",
+            }
+
 class ricatti_estimation():
     def __init__(self):
         rospy.init_node('ricatti_estimation')
@@ -30,7 +39,6 @@ class ricatti_estimation():
         self.sbr = tf2_ros.StaticTransformBroadcaster()
 
         self.stop = 0
-        # self.startTime = rospy.Time.now()
         self.startTime = None
         self.svea_frame_name = "svea2"
         ##############################################
@@ -68,11 +76,8 @@ class ricatti_estimation():
         v1 = rospy.get_param("~v1", 0.1)
         v2 = rospy.get_param("~v2", 0.8)
         self.arucoIdToBeUsed = np.array([10,11,12,13,14,15,16,17,18]) #12-18
-        # estpose = rospy.get_param("~estpose", np.array([0, 0, 0]))
-        # estori = rospy.get_param("~estori", np.array([1, 0, 0, 0]))
-        # self.estori = np.array([0, 0, -0.5, 0.5], dtype=np.float64) #x, y, z, w
+
         self.estpose = np.array([0, 0, 0], dtype=np.float64)
-        # self.estori = np.array([0.5, 0, 0, 0], dtype=np.float64) #w, x, y, z
         self.estori = np.array([0, 0, 0, -0.5], dtype=np.float64) #w, x, y, z
         self.initpose = self.estpose
         self.estori /= np.linalg.norm(self.estori)
@@ -214,26 +219,24 @@ class ricatti_estimation():
             linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
             angular_velocity = np.array([TwistMsg.twist.twist.angular.x, TwistMsg.twist.twist.angular.y, TwistMsg.twist.twist.angular.z])
             self.timeStamp = TwistMsg.header.stamp
-            self.riccati_obj.update_measurement(angular_velocity, linear_velocity, [], [], (self.timeStamp - self.startTime).to_sec())
-            arucosUsed = ArucoArray()
-            self.usedLandmark.publish(arucosUsed)
-            self.visualizeAruco(arucosUsed)
-            solt, dt, soly = self.riccati_obj.step_simulation()
-            dtMsg = Float32()
-            dtMsg.data = dt
-            self.dtPublisher.publish(dtMsg)
-            self.t = solt
-            self.estpose = soly[4:7]
-            print("self.estpose", self.estpose)
-            self.estori = soly[0:4]
-            self.estori /= np.linalg.norm(self.estori)
-            self.pub_EstPose(self.timeStamp, dt)
-            print("===================================================")
-            self.INtwistcallback = False
-
+            if not self.syncCallback:
+                self.riccati_obj.update_measurement(angular_velocity, linear_velocity, [], [], (self.timeStamp - self.startTime).to_sec())
+                arucosUsed = ArucoArray()
+                self.usedLandmark.publish(arucosUsed)
+                self.visualizeAruco(arucosUsed)
+                solt, dt, soly = self.riccati_obj.step_simulation()
+                dtMsg = Float32()
+                dtMsg.data = dt
+                self.dtPublisher.publish(dtMsg)
+                self.t = solt
+                self.estpose = soly[4:7]
+                print("self.estpose", self.estpose)
+                self.estori = soly[0:4]
+                self.estori /= np.linalg.norm(self.estori)
+                self.pub_EstPose(self.timeStamp, dt)
+                print("===================================================")
 
     def TwistAndLandmarkCallback(self, TwistMsg, LandmarkMsg, LandmarkGroudtruthMsg):
-        if not self.INtwistcallback:
             self.syncCallback = True
             if self.startTime == None:
                 self.startTime = TwistMsg.header.stamp
@@ -258,13 +261,8 @@ class ricatti_estimation():
                         landmarkGroundTruth.append([ArucoGroundtruth.marker.pose.pose.position.x, ArucoGroundtruth.marker.pose.pose.position.y, ArucoGroundtruth.marker.pose.pose.position.z])
                         break
             print("linear_velocity ", linear_velocity)
-            if len(landmark) < 3:
-                self.riccati_obj.update_measurement(angular_velocity, linear_velocity, [], [], (self.timeStamp - self.startTime).to_sec())
-                arucosUsed.arucos = []
-                self.usedLandmark.publish(arucosUsed)
-            else:
-                self.riccati_obj.update_measurement(angular_velocity, linear_velocity, landmark, landmarkGroundTruth, (self.timeStamp - self.startTime).to_sec())
-                self.usedLandmark.publish(arucosUsed)
+            self.riccati_obj.update_measurement(angular_velocity, linear_velocity, landmark, landmarkGroundTruth, (self.timeStamp - self.startTime).to_sec())
+            self.usedLandmark.publish(arucosUsed)
             self.visualizeAruco(arucosUsed)
             self.visualDirection(landmark, LandmarkMsg, arucoId)
             solt, dt, soly = self.riccati_obj.step_simulation()

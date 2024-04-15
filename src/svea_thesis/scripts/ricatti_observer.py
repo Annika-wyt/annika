@@ -2,6 +2,15 @@ import numpy as np
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import time as systemtime
+
+ERROR_MSG = {-1:"No error",
+             0: "Algined source points",
+             1: "Three source points: moving orthogonal to source points plane and through",
+             2: "Three source points: motionless C in danger cylinder",
+             3: "Three source points: moving on danger cylinder but not along any lines (weak)",
+             4: "Four + source points: on horopter curve",
+            }
+
 class riccati_observer():
     def __init__(self, **kwargs):
         ######################################################

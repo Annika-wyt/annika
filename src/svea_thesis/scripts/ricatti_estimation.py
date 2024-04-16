@@ -11,7 +11,7 @@ from ricatti_observer import riccati_observer
 from std_msgs.msg import Float32, ColorRGBA
 from svea_msgs.msg import Aruco, ArucoArray, riccati_setup
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import TwistWithCovarianceStamped, TransformStamped, Point, Quaternion, Vector3, PoseStamped, Vector3Stamped, TwistStamped
+from geometry_msgs.msg import TwistWithCovarianceStamped, TransformStamped, Point, Quaternion, Vector3, PoseStamped, Vector3Stamped, TwistStamped, PoseArray, Pose
 import tf2_geometry_msgs
 import tf.transformations
 
@@ -21,11 +21,12 @@ from visualization_msgs.msg import MarkerArray as VMA
 WITH_LANDMARK = True
 
 ERROR_MSG = {-1:"No error",
-             0: "Algined source points",
-             1: "Three source points: moving orthogonal to source points plane and through",
-             2: "Three source points: motionless C in danger cylinder",
-             3: "Three source points: moving on danger cylinder but not along any lines (weak)",
-             4: "Four + source points: on horopter curve",
+             0: "Not enough source points",
+             1: "Algined source points",
+             2: "Three source points: moving along one of the straight lines of the danger cylinder and passing through a source point",
+             3: "Three source points: motionless C in danger cylinder",
+             4: "Three source points: moving on danger cylinder but not along any lines (weak)",
+             5: "Four + source points: on horopter curve",
             }
 
 class ricatti_estimation():
@@ -40,7 +41,7 @@ class ricatti_estimation():
 
         self.stop = 0
         self.startTime = None
-        self.svea_frame_name = "svea2"
+        self.svea_frame_name = "svea5"
         ##############################################
         ################# Subscriber #################
 
@@ -57,6 +58,7 @@ class ricatti_estimation():
 
         self.dtPublisher = rospy.Publisher("/ricatti/dt", Float32, queue_size=10)
         self.RiccatiSetupPublisher = rospy.Publisher("/ricatti/setup", riccati_setup, queue_size=10)
+        self.RiccatiDirPublisher = rospy.Publisher("/ricatti/diretions", PoseArray, queue_size=10)
         ##############################################
         ################# Variables ##################
 
@@ -71,14 +73,14 @@ class ricatti_estimation():
         self.INtwistcallback = False
         ##############################################
         ################# Parameters #################
-        k = rospy.get_param("~k", 8)
+        k = rospy.get_param("~k", 5)
         q = rospy.get_param("~q", 10)
         v1 = rospy.get_param("~v1", 0.1)
         v2 = rospy.get_param("~v2", 0.8)
-        self.arucoIdToBeUsed = np.array([10,11,12,13,14,15,16,17,18]) #12-18
+        # self.arucoIdToBeUsed = np.array([10,11,12,13,14,15,16,17,18]) #12-18
 
         self.estpose = np.array([0, 0, 0], dtype=np.float64)
-        self.estori = np.array([0, 0, 0, -0.5], dtype=np.float64) #w, x, y, z
+        self.estori = np.array([0.5, 0, 0, 0], dtype=np.float64) #w, x, y, z
         self.initpose = self.estpose
         self.estori /= np.linalg.norm(self.estori)
         self.initori = self.estori #w, x, y, z
@@ -97,8 +99,8 @@ class ricatti_estimation():
         v                       = np.array([v1, v2]),
         p_ricatti               = np.array([1, 100])
         )
-        Twist = Subscriber('/actuation_twist', TwistWithCovarianceStamped)
-        # Twist = Subscriber('/odometry/filtered', Odometry)
+        # Twist = Subscriber('/actuation_twist', TwistWithCovarianceStamped)
+        Twist = Subscriber('/odometry/filtered', Odometry)
         
         Landmark = Subscriber('/aruco/detection', ArucoArray)
         LandmarkGroudtruth = Subscriber('/aruco/detection/Groundtruth', ArucoArray)
@@ -106,9 +108,8 @@ class ricatti_estimation():
         if WITH_LANDMARK:
             sync = ApproximateTimeSynchronizer([Twist, Landmark, LandmarkGroudtruth], queue_size=1, slop=3)
             sync.registerCallback(self.TwistAndLandmarkCallback)
-            rospy.Subscriber('/actuation_twist', TwistWithCovarianceStamped, self.twistCallback)
         else:
-            sync = ApproximateTimeSynchronizer([Twist], queue_size=10, slop=2)
+            sync = ApproximateTimeSynchronizer([Twist], queue_size=1, slop=2)
             sync.registerCallback(self.TwistSyncCallback)
 
         self.usedLandmark = rospy.Publisher('/aruco/used', ArucoArray, queue_size=10)
@@ -118,8 +119,6 @@ class ricatti_estimation():
         self.time = rospy.Time.now()
         self.pubOdom2(self.time)
         self.pub_EstPose(self.time, 0)
-
-
 
     def pubOdom2(self, timeStamp):
         msg = TransformStamped()
@@ -200,106 +199,93 @@ class ricatti_estimation():
         self.visualArucoPub.publish(visualarr)
 
     def visualDirection(self, z, msg, arucoId):
+        dirs = self.riccati_obj.calculate_direction(z)
+        Pmsg = PoseArray()
+        Pmsg.header = msg.header
+
         for landmark_idx in range(len(z)):
-            d = np.array(z[landmark_idx]/ np.linalg.norm(z[landmark_idx]))
-            msg = TransformStamped()
-            msg.header = msg.header
-            msg.header.frame_id = "base_link_est"
-            msg.child_frame_id = 'Direction' + str(arucoId[landmark_idx])
-            msg.transform.translation = Vector3(*d)
-            msg.transform.rotation = Quaternion(*[0, 0, 0, 1]) #x, y, z, w
-            self.sbr.sendTransform(msg)
-
-    def twistCallback(self, TwistMsg):
-        if not self.syncCallback:
-            if self.startTime == None:
-                self.startTime = TwistMsg.header.stamp
-            self.INtwistcallback = True
-
-            linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
-            angular_velocity = np.array([TwistMsg.twist.twist.angular.x, TwistMsg.twist.twist.angular.y, TwistMsg.twist.twist.angular.z])
-            self.timeStamp = TwistMsg.header.stamp
-            if not self.syncCallback:
-                self.riccati_obj.update_measurement(angular_velocity, linear_velocity, [], [], (self.timeStamp - self.startTime).to_sec())
-                arucosUsed = ArucoArray()
-                self.usedLandmark.publish(arucosUsed)
-                self.visualizeAruco(arucosUsed)
-                solt, dt, soly = self.riccati_obj.step_simulation()
-                dtMsg = Float32()
-                dtMsg.data = dt
-                self.dtPublisher.publish(dtMsg)
-                self.t = solt
-                self.estpose = soly[4:7]
-                print("self.estpose", self.estpose)
-                self.estori = soly[0:4]
-                self.estori /= np.linalg.norm(self.estori)
-                self.pub_EstPose(self.timeStamp, dt)
-                print("===================================================")
+            d = dirs[landmark_idx]
+            Tmsg = TransformStamped()
+            Tmsg.header = msg.header
+            Tmsg.header.frame_id = "svea5"
+            Tmsg.child_frame_id = 'Direction' + str(arucoId[landmark_idx])
+            Tmsg.transform.translation = Vector3(*d)
+            Tmsg.transform.rotation = Quaternion(*[0, 0, 0, 1]) #x, y, z, w
+            self.sbr.sendTransform(Tmsg)
+            posemsg = Pose()
+            posemsg.position = Point(*d)
+            posemsg.orientation = Quaternion(*[0, 0, 0, 1])
+            Pmsg.poses.append(posemsg)
+        self.RiccatiDirPublisher.publish(Pmsg)
 
     def TwistAndLandmarkCallback(self, TwistMsg, LandmarkMsg, LandmarkGroudtruthMsg):
-            self.syncCallback = True
-            if self.startTime == None:
-                self.startTime = TwistMsg.header.stamp
-            self.pubRiccatiMsg()
-            self.timeStamp = TwistMsg.header.stamp
+        if self.startTime == None:
+            self.startTime = TwistMsg.header.stamp
+        self.pubRiccatiMsg()
+        self.timeStamp = TwistMsg.header.stamp
 
-            linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
-            angular_velocity = np.array([TwistMsg.twist.twist.angular.x, TwistMsg.twist.twist.angular.y, TwistMsg.twist.twist.angular.z])
+        linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
+        # angular_velocity = np.array([TwistMsg.twist.twist.angular.x, TwistMsg.twist.twist.angular.y, TwistMsg.twist.twist.angular.z])
+        angular_velocity = np.array([0, 0, 0])
 
-            landmark = []
-            landmarkGroundTruth = []
-            arucosUsed = ArucoArray()
-            arucosUsed.header = LandmarkMsg.header
-            arucoId = []
-            for aruco in LandmarkMsg.arucos:
-                landmark.append([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])
-                arucosUsed.arucos.append(aruco)
-                arucoId.append(aruco.marker.id)
-                for ArucoGroundtruth in LandmarkGroudtruthMsg.arucos:
-                    if ArucoGroundtruth.marker.id == aruco.marker.id:
-                        # in map frame
-                        landmarkGroundTruth.append([ArucoGroundtruth.marker.pose.pose.position.x, ArucoGroundtruth.marker.pose.pose.position.y, ArucoGroundtruth.marker.pose.pose.position.z])
-                        break
-            print("linear_velocity ", linear_velocity)
-            self.riccati_obj.update_measurement(angular_velocity, linear_velocity, landmark, landmarkGroundTruth, (self.timeStamp - self.startTime).to_sec())
-            self.usedLandmark.publish(arucosUsed)
-            self.visualizeAruco(arucosUsed)
-            self.visualDirection(landmark, LandmarkMsg, arucoId)
-            solt, dt, soly = self.riccati_obj.step_simulation()
-            dtMsg = Float32()
-            dtMsg.data = dt
-            self.dtPublisher.publish(dtMsg)
-            self.t = solt
+        landmark = []
+        landmarkGroundTruth = []
+        arucosUsed = ArucoArray()
+        arucosUsed.header = LandmarkMsg.header
+        arucoId = []
 
-            ############################# Quaternion
-            ############################# 
-            self.estpose = soly[4:7]
-            print("self.estpose", self.estpose)
-            self.estori = soly[0:4]
-            self.estori /= np.linalg.norm(self.estori)
-            ############################# Quaternion
-            #############################
+        for aruco in LandmarkMsg.arucos:
+            landmark.append([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])
+            arucosUsed.arucos.append(aruco)
+            arucoId.append(aruco.marker.id)
+            for ArucoGroundtruth in LandmarkGroudtruthMsg.arucos:
+                # maybe dictionary is faster
+                if ArucoGroundtruth.marker.id == aruco.marker.id:
+                    # in map frame
+                    landmarkGroundTruth.append([ArucoGroundtruth.marker.pose.pose.position.x, ArucoGroundtruth.marker.pose.pose.position.y, ArucoGroundtruth.marker.pose.pose.position.z])
+                    break
+        print("linear_velocity ", linear_velocity)
+        print("angular_velocity ", angular_velocity)
 
-            ############################# 
-            ############################# Rot Mat        
-            # self.estpose = soly[9:12]
-            # Rotmat = soly[0:9].reshape((3,3))
-            # Translmat = soly[9:12].reshape((3,1))
-            # Transmat = np.hstack((Rotmat, Translmat))
-            # Transmat = np.vstack((Transmat, np.array([0,0,0,1])))
-            # self.estori = tf.transformations.quaternion_from_matrix(Transmat) 
-            # self.estori = np.concatenate(([self.estori[-1]], self.estori[0:-1]))
-            # self.estori /= np.linalg.norm(self.estori)
-            ############################# Rot Mat        
-            #############################        
-            self.pub_EstPose(self.timeStamp, dt)
-            print("===================================================")
-            self.stop += 1
-            self.syncCallback = False
+        self.riccati_obj.update_measurement(angular_velocity, linear_velocity, landmark, landmarkGroundTruth, (self.timeStamp - self.startTime).to_sec())
+        self.usedLandmark.publish(arucosUsed)
+        self.visualizeAruco(arucosUsed)
+        self.visualDirection(landmark, LandmarkMsg, arucoId)
+
+        solt, dt, soly, errMsg = self.riccati_obj.step_simulation()
+        rospy.loginfo(f'errMsg: {ERROR_MSG[errMsg]}')
+        dtMsg = Float32()
+        dtMsg.data = dt
+        self.dtPublisher.publish(dtMsg)
+        self.t = solt
+
+        ############################# Quaternion
+        ############################# 
+        self.estpose = soly[4:7]
+        print("self.estpose", self.estpose)
+        self.estori = soly[0:4]
+        self.estori /= np.linalg.norm(self.estori)
+        ############################# Quaternion
+        #############################
+
+        ############################# 
+        ############################# Rot Mat        
+        # self.estpose = soly[9:12]
+        # Rotmat = soly[0:9].reshape((3,3))
+        # Translmat = soly[9:12].reshape((3,1))
+        # Transmat = np.hstack((Rotmat, Translmat))
+        # Transmat = np.vstack((Transmat, np.array([0,0,0,1])))
+        # self.estori = tf.transformations.quaternion_from_matrix(Transmat) 
+        # self.estori = np.concatenate(([self.estori[-1]], self.estori[0:-1]))
+        # self.estori /= np.linalg.norm(self.estori)
+        ############################# Rot Mat        
+        #############################        
+        self.pub_EstPose(self.timeStamp, dt)
+        print("===================================================")
+        self.stop += 1
 
 
     def TwistSyncCallback(self, TwistMsg):
-        print("hi")
         if self.startTime == None:
             self.startTime = TwistMsg.header.stamp
         self.pubRiccatiMsg()
@@ -307,10 +293,13 @@ class ricatti_estimation():
 
         linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
         angular_velocity = np.array([TwistMsg.twist.twist.angular.x, TwistMsg.twist.twist.angular.y, TwistMsg.twist.twist.angular.z])
+        # angular_velocity = np.array([0, 0, 0])
         print("linear_velocity ", linear_velocity)
+        print("angular_velocity ", angular_velocity)
 
         self.riccati_obj.update_measurement(angular_velocity, linear_velocity, [], [], (self.timeStamp - self.startTime).to_sec())
-        solt, dt, soly = self.riccati_obj.step_simulation()
+        solt, dt, soly, errMsg = self.riccati_obj.step_simulation()
+        rospy.loginfo(f'errMsg: {ERROR_MSG[errMsg]}')
         dtMsg = Float32()
         dtMsg.data = dt
         self.dtPublisher.publish(dtMsg)

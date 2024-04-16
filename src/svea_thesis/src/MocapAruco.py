@@ -35,6 +35,11 @@ class MocapAruco:
 
         self.publishing = False
 
+        # Transformation
+        self.buffer = tf2_ros.Buffer(rospy.Duration(10))
+        self.listener = tf2_ros.TransformListener(self.buffer)
+        self.br = tf2_ros.TransformBroadcaster()
+
         # Subscriber
         MocapAruco10 = rospy.Subscriber('/qualisys/aruco10/pose', PoseStamped, self.arucoCallback, callback_args="10")
         MocapAruco11 = rospy.Subscriber('/qualisys/aruco11/pose', PoseStamped, self.arucoCallback, callback_args="11")
@@ -48,10 +53,7 @@ class MocapAruco:
         # Publisher
         self.MapArucoPub = rospy.Publisher('/aruco/detection/Groundtruth', ArucoArray, queue_size=1)    
 
-        # Transformation
-        self.buffer = tf2_ros.Buffer(rospy.Duration(10))
-        self.listener = tf2_ros.TransformListener(self.buffer)
-        self.br = tf2_ros.TransformBroadcaster()
+
         
     def run(self):
         while not rospy.is_shutdown():

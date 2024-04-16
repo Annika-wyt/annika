@@ -9,8 +9,8 @@ from geometry_msgs.msg import TwistWithCovarianceStamped, TransformStamped, Poin
 
 from nav_msgs.msg import Odometry
 import tf2_geometry_msgs
-
-import pandas as pd
+import tf
+# import pandas as pd
 
 from message_filters import Subscriber, ApproximateTimeSynchronizer
 
@@ -18,12 +18,16 @@ AveAll = True
 class dummyMeasurement():
     def __init__(self):
         rospy.init_node("dummyMeasurement")
-        self.svea_frame_name = "base_link"
+        self.svea_frame_name = "svea5"
 
         OdomTopic = Subscriber("/qualisys/" + self.svea_frame_name + "/odom", Odometry)
         VelTopic = Subscriber("/qualisys/" + self.svea_frame_name + "/velocity", TwistStamped)
         sync = ApproximateTimeSynchronizer([OdomTopic, VelTopic], queue_size=1, slop=0.1)
-        sync.registerCallback(self.OdomVelCallback)
+        # sync.registerCallback(self.OdomVelCallback)
+
+        rospy.Subscriber("/qualisys/svea5/odom", Odometry, self.odomCallback)
+        rospy.Subscriber("/actuation_twist", TwistWithCovarianceStamped, self.TwistCallback)
+
 
         if AveAll:
             self.linearXRunningAvg = np.array([0, 0, 0])
@@ -31,7 +35,7 @@ class dummyMeasurement():
         else:
             self.linearXRunningAvg = 0
             self.angularZRunningAvg = 0
-        self.alpha = 2/(20+1)
+        self.alpha = 2/(30+1)
         self.alphaAng = 2/(30+1)
         self.landmarkPub = rospy.Publisher("/aruco/detection/Groundtruth", ArucoArray, queue_size=1) #map frame
         self.landmark2Pub = rospy.Publisher("/aruco/detection", ArucoArray, queue_size=1) #svea2 frame; actual direction
@@ -48,16 +52,20 @@ class dummyMeasurement():
 
 
         if self.motion == "test":
-            sim_solution = pd.read_csv("/home/annika/ITRL/kth_thesis/simulated_result/angular.txt", header=None)
+            # sim_solution = pd.read_csv("/home/annika/ITRL/kth_thesis/simulated_result/angular.txt", header=None)
             sim_solution = sim_solution.to_numpy().reshape((-1, 8))
             # print("sim_sol shape", np.shape(sim_solution))
             self.ori = sim_solution[:,0:4]
             self.pose = sim_solution[:,4:7]
             self.sim_time = sim_solution[:,-1]
         z=1
-        self.landmarkId = np.array([10, 11, 12, 15, 18])
+        self.landmarkId = np.array([10, 11, 12, 13, 14])
         # landmark_pose = np.array([[-1.74, -2.34, 0.046], [-1.80, -1.85, 0.06], [-2, -2.2, 0.16], [1.5, 0.5, 1], [-1, 1, 0.5], [1, -1, 0]])
-        landmark_pose = np.array([[-1.7, -2.3, 0.1], [-1.8, -2.1, 0.1], [-2, -2, 0.7]]) #, [-1.8, -1.9, 1], [-2, -2.2, 0.2]])
+        landmark_pose = np.array([[-2.5,5,  0], 
+                                  [0,   5,  0], 
+                                  [1.5,   5, 0], 
+                                  [-1.5,     5,   5], 
+                                  [2.5, 5,0]])
         self.landmarkPose = []
         for lId, lpose in zip(self.landmarkId, landmark_pose):
             lm = PoseStamped()
@@ -74,6 +82,32 @@ class dummyMeasurement():
         self.br = tf2_ros.TransformBroadcaster()
         self.sbr = tf2_ros.StaticTransformBroadcaster()
 
+
+    def TwistCallback(self, msg):
+        odometryMsg = Odometry()
+        odometryMsg.header.seq = self.seq
+        odometryMsg.header.stamp = self.time
+        odometryMsg.header.frame_id = self.frame
+        odometryMsg.child_frame_id = self.svea_frame_name
+        if AveAll:
+            self.linearXRunningAvg = self.alpha * np.array([msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z]) + (1 - self.alpha) * self.linearXRunningAvg
+            self.angularZRunningAvg = self.alphaAng * np.array([msg.twist.twist.angular.x, msg.twist.twist.angular.y, msg.twist.twist.angular.z]) + (1 - self.alphaAng) * self.angularZRunningAvg
+            linear = self.linearXRunningAvg 
+            angular = self.angularZRunningAvg
+        odometryMsg.twist.twist.linear = Vector3(*linear)
+        odometryMsg.twist.twist.angular = Vector3(*angular)
+        self.twistPub.publish(odometryMsg)
+
+    def odomCallback(self, msg):
+        t = TransformStamped()
+        t.header = msg.header
+        t.header.frame_id = "map"
+        t.child_frame_id = "svea5"
+        t.transform.translation = msg.pose.pose.position
+        t.transform.rotation = msg.pose.pose.orientation
+
+        self.br.sendTransform(t)
+
     def OdomVelCallback(self, Odommsg, Velmsg):
         try:
             self.publishBaselink(Odommsg)
@@ -89,14 +123,15 @@ class dummyMeasurement():
             print(e)
     def run(self):
         while not rospy.is_shutdown():
-            self.time = rospy.Time.now()
-            self.current_time = (self.time - self.startTime).to_sec()
-            if self.motion != "bag":
-                self.publishBaselink(None)
-                self.publishTwist(None, None)
+            for i in range(3):
+                self.time = rospy.Time.now()
+                self.current_time = (self.time - self.startTime).to_sec()
+                if self.motion != "bag":
+                    self.publishBaselink(None)
+                    self.publishTwist(None, None)
+                    rospy.sleep(0.01)
             self.publishAruco()
             self.seq += 1
-            rospy.sleep(0.005)
 
     def publishTwist(self, Msg, transform):
         odometryMsg = Odometry()
@@ -108,10 +143,11 @@ class dummyMeasurement():
             linear = [0, 0, 0]
             angular = [0, 0, 0]
         elif self.motion == "linear":
-            linear = [np.sin(0.4*self.current_time), 0, 0]
+            linear = [0.2, 0, 0]
+            # linear = [np.sin(0.4*self.current_time), 0, 0]
             angular = [0, 0, 0]
         elif self.motion == "angular":
-            linear = [0, 0, 0]
+            linear = [-np.sin(0.4*self.current_time), np.cos(0.4*self.current_time), 0]
             angular = [0, 0, 0.3]
         elif self.motion == "both":
             linear = [0.3, 0, 0]
@@ -143,20 +179,25 @@ class dummyMeasurement():
         msg.header.frame_id = "map"
         msg.child_frame_id = self.svea_frame_name
         if self.motion == "static": 
-            msg.transform.translation = Vector3(*[5, 0, 10])
-            msg.transform.rotation = Quaternion(*[0, 0, 0, 1]) #x, y, z, w
+            msg.transform.translation = Vector3(*[10, 8, 0])
+            rotation = [0, 0, 0, 1]
+            rotation = rotation/np.linalg.norm(rotation)
+            msg.transform.rotation = Quaternion(*rotation) #x, y, z, w
         elif self.motion == "linear":
-            # msg.transform.translation = Vector3(*[-1/0.4*np.cos(0.4*self.current_time) + 1/0.4, 0, 0])
-            # rotation = np.array([0, 0, 0, 0.5])
+            # msg.transform.translation = Vector3(*[-1/0.4*np.cos(0.4*self.current_time) + 1/0.4 - 3.5, 1, 0])
+            msg.transform.translation = Vector3(*[0.2*self.current_time - 7.5, 10, 0])
+            rotation = np.array([0, 0, 0, 0.5])
 
-            msg.transform.translation = Vector3(*[0, -1/0.4*np.cos(0.4*self.current_time) + 1/0.4,0])
-            rotation = np.array([0, 0, 0.5, 0.5])
+            # msg.transform.translation = Vector3(*[0, -1/0.4*np.cos(0.4*self.current_time) + 1/0.4,0])
+            # rotation = np.array([0, 0, 0.5, 0.5])
             rotation /= np.linalg.norm(rotation)
             msg.transform.rotation = Quaternion(*rotation) #x, y, z, w
         elif self.motion == "angular":
-            msg.transform.translation = Vector3(*[5, 0, 10])
+            msg.transform.translation = Vector3(*[2*np.cos(0.4*self.current_time), 2*np.sin(0.4*self.current_time), 0])
             # msg.transform.rotation = Quaternion(*[0, 0, 0, 1]) #x, y, z, w
-            msg.transform.rotation = Quaternion(*[0, 0, np.sin(0.3*self.current_time/2), np.cos(0.3*self.current_time/2)]) #x, y, z, w
+            theta = 0.4 * self.current_time + np.pi/2
+            quaternion = tf.transformations.quaternion_from_euler(0, 0, theta)
+            msg.transform.rotation = Quaternion(*quaternion) #x, y, z, w
         elif self.motion == "both":
             msg.transform.translation = Vector3(*[0.3*self.current_time, 0, 10])
             msg.transform.rotation = Quaternion(*[0, 0, 0, 1]) #x, y, z, w

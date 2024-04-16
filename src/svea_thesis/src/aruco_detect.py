@@ -35,8 +35,10 @@ class aruco_detect:
         self.ARUCO_SIZE = rospy.get_param('~aruco_size', '0.365')
         self.ARUCO_TF_NAME = rospy.get_param('~aruco_tf_name', 'arucoCamera')
         self.PUB_ARUCO_POSE = rospy.get_param('~pub_aruco_pose', '/aruco/pose')
-
-        self.base_link = "svea2"
+        
+        self.debug = True
+        
+        self.base_link = "svea5"
 
         ## Aruco
         self.aruco_size = float(self.ARUCO_SIZE)
@@ -120,6 +122,9 @@ class aruco_detect:
                 t.header = image.header
                 t.transform.translation = Point(*translation)
                 t.transform.rotation = Quaternion(*rotation)
+            
+            else:
+                continue
 
             self.br.sendTransform(t)
 
@@ -130,8 +135,10 @@ class aruco_detect:
             # aruco_msg.header = image.header
             aruco_msg.image_x, aruco_msg.image_y = np.mean(markerCorners, axis=0)
 
-            cv2.circle(gray, (int(aruco_msg.image_x), int(aruco_msg.image_y)), 50, (0,255,0), 2)
-            self.image_pub.publish(CvBridge().cv2_to_imgmsg(gray, "passthrough"))
+            # debug
+            if self.debug:
+                cv2.circle(gray, (int(aruco_msg.image_x), int(aruco_msg.image_y)), 50, (0,255,0), 2)
+                self.image_pub.publish(CvBridge().cv2_to_imgmsg(gray, "passthrough"))
 
             ## Publish  
             marker = Marker()

@@ -5,6 +5,9 @@ from scipy.spatial.transform import Rotation as ScipyRot
 import matplotlib.pyplot as plt
 import time as systemtime
 import pandas as pd
+
+
+
 class riccati_observer():
     def __init__(self, **kwargs):
         ######################################################
@@ -211,6 +214,13 @@ class riccati_observer():
         '''
         return np.matmul(np.linalg.inv(np.transpose(input_rot)), input_p_bar)
 
+    def GetlinVelocity(self, t):
+        return np.transpose(np.array([[0.2, 0, 0]]))
+    def GetAngVelocity(self, t):
+        return np.transpose(np.array([[0, 0, 0]]))
+    def GetPose(self, t):
+        return np.transpose(np.array([[0, 0.2*self.current_time - 8, 5]]))
+    
     def visual_plot(self, figsize = (20, 4), bound_y=True):
         '''
         Plot the result of estimation
@@ -237,7 +247,7 @@ class riccati_observer():
                 own_sol_R = solution[:9]
                 own_sol_est_R = solution[9:18]
                 own_sol_est_p_bar = solution[18:21]
-            p = np.array([5, 0, 10])
+            p = self.GetPose(t).reshape((3,))
             # p = np.array([2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10])
             p_bar_temp = np.matmul(np.transpose(np.array(own_sol_R).reshape((3,3))), p)
             p_temp = np.matmul(np.array(own_sol_est_R).reshape((3,3)), own_sol_est_p_bar)
@@ -251,7 +261,7 @@ class riccati_observer():
         scipy_plot_act_p = []
 
         for t, rotation, p_bar_hat in zip(sol_t, sol_R, sol_est_p_bar):
-            p = np.array([5, 0, 10])
+            p = self.GetPose(t).reshape((3,))
             # p = np.array([2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10])
             rotation = self.rodrigues_formula(rotation)
             p_temp = np.matmul(np.transpose(np.array(rotation).reshape((3,3))), p)
@@ -318,7 +328,8 @@ class riccati_observer():
             ax[0,1].set_xlabel("Pose error in F frame ")
             ax[0,1].grid()
             ax[0,1].set_xlim(0)
-            ax[0,1].set_ylim(-0.5, 0.5)
+            if bound_y:
+                ax[0,1].set_ylim(-0.5, 0.5)
             ax[0,1].minorticks_on()
 
             ax[1,0].plot(self.solt, np.array(plot_act_p), label=["new act x", "new act y", "new act z"], marker='o', markersize=0.2)
@@ -394,6 +405,9 @@ class riccati_observer():
         return figure, ax, plot_act_lambda_bar, plot_act_p_bar
         ###############################################################################################################################
         ###############################################################################################################################
+
+
+
 
     def observer_equations(self, input_omega, input_p_bar_hat, input_R, input_v, num_landmarks, input_q, input_R_hat, input_z, input_p, with_noise, input_k, input_P, which_eq):
         if which_eq == 0:
@@ -475,28 +489,34 @@ class riccati_observer():
 
     def dynamics(self, t, y, input_k, input_z, input_q, input_Q, input_V, with_noise, num_landmarks, which_eq, quaternion, which_omega):
         # pose
-        input_p = np.transpose(np.array([[2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10]]))
-    
+        # input_p = np.transpose(np.array([[2.5+2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10]]))
+        input_p = self.GetPose(t)
         ####################################
         ########### Measurements ###########
         if with_noise:
-            b_v = np.random.normal(0, 0.1, 1)
-            b_omega = np.random.normal(0, 0.01, 1)
-            # velocity
-            input_v = np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]])) + b_v
-            # angular velocity
-            if which_omega == "z":
-                input_omega = np.transpose(np.array([[0 ,0 , 0.6*t]])) + b_omega
-            elif which_omega == "full":
-                input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]])) + b_omega
+            print(f"NO With Noise function available")
+            pass
+            # b_v = np.random.normal(0, 0.1, 1)
+            # b_omega = np.random.normal(0, 0.01, 1)
+            # # velocity
+            # input_v = np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]])) + b_v
+            # # angular velocity
+            # if which_omega == "z":
+            #     input_omega = np.transpose(np.array([[0 ,0 , 0.6*t]])) + b_omega
+            # elif which_omega == "full":
+            #     input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]])) + b_omega
         else:
             # velocity
-            input_v = np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]]))
+            # input_v = np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]]))
+            input_v = self.GetlinVelocity(t)
             # angular velocity
             if which_omega == "z":
-                input_omega = np.transpose(np.array([[0, 0, 0.6*t]]))
+                print(f"NO z omega avaible")
+                pass
+                # input_omega = np.transpose(np.array([[0, 0, 0.6*t]]))
             elif which_omega == "full":
-                input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]]))
+                input_omega = self.GetAngVelocity(t)
+                # input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]]))
         ########### Measurements ###########
         ####################################
 

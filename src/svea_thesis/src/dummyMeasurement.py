@@ -59,13 +59,14 @@ class dummyMeasurement():
             self.pose = sim_solution[:,4:7]
             self.sim_time = sim_solution[:,-1]
         z=1
-        self.landmarkId = np.array([10, 11, 12, 13, 14])
+        self.landmarkId = np.array([10, 11, 12, 13, 14, 15])
         # landmark_pose = np.array([[-1.74, -2.34, 0.046], [-1.80, -1.85, 0.06], [-2, -2.2, 0.16], [1.5, 0.5, 1], [-1, 1, 0.5], [1, -1, 0]])
-        landmark_pose = np.array([[-2.5,5,  0], 
-                                  [0,   5,  0], 
-                                  [1.5,   5, 0], 
-                                  [-1.5,     5,   5], 
-                                  [2.5, 5,0]])
+        landmark_pose = np.array([[-2.5, 0, 5], 
+                                  [0,  0,  7.5], 
+                                #   [2.5,  5, 0], 
+                                #   [2,  6, 2], 
+                                #   [2,  4, 2], 
+                                  [2.5, 0, 5]])
         self.landmarkPose = []
         for lId, lpose in zip(self.landmarkId, landmark_pose):
             lm = PoseStamped()
@@ -123,13 +124,13 @@ class dummyMeasurement():
             print(e)
     def run(self):
         while not rospy.is_shutdown():
-            for i in range(3):
+            for i in range(5):
                 self.time = rospy.Time.now()
                 self.current_time = (self.time - self.startTime).to_sec()
                 if self.motion != "bag":
                     self.publishBaselink(None)
                     self.publishTwist(None, None)
-                    rospy.sleep(0.01)
+                    rospy.sleep(0.005)
             self.publishAruco()
             self.seq += 1
 
@@ -179,14 +180,14 @@ class dummyMeasurement():
         msg.header.frame_id = "map"
         msg.child_frame_id = self.svea_frame_name
         if self.motion == "static": 
-            msg.transform.translation = Vector3(*[10, 8, 0])
+            msg.transform.translation = Vector3(*[2.500, 0.379, 5.000])
             rotation = [0, 0, 0, 1]
             rotation = rotation/np.linalg.norm(rotation)
             msg.transform.rotation = Quaternion(*rotation) #x, y, z, w
         elif self.motion == "linear":
             # msg.transform.translation = Vector3(*[-1/0.4*np.cos(0.4*self.current_time) + 1/0.4 - 3.5, 1, 0])
-            msg.transform.translation = Vector3(*[0.2*self.current_time - 7.5, 10, 0])
-            rotation = np.array([0, 0, 0, 0.5])
+            msg.transform.translation = Vector3(*[2.5, 0.2*self.current_time, 4.5])
+            rotation = np.array([0, 0, 0.5, 0.5])
 
             # msg.transform.translation = Vector3(*[0, -1/0.4*np.cos(0.4*self.current_time) + 1/0.4,0])
             # rotation = np.array([0, 0, 0.5, 0.5])

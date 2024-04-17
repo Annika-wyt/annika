@@ -21,7 +21,7 @@ class diff_est_act():
 
     def pubFun(self):
         try:
-            transform = self.buffer.lookup_transform(self.svea_frame_name, "base_link_est", rospy.Time(), rospy.Duration(2))  
+            transform = self.buffer.lookup_transform(self.svea_frame_name, "base_link_est", rospy.Time(), rospy.Duration(0.5))  
             self.pub.publish(transform)
         except Exception as e:
             print(e)

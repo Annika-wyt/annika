@@ -2,7 +2,7 @@ import numpy as np
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import time as systemtime
-
+from itertools import combinations
 ERROR_MSG = {-1:"No error",
              0: "Algined source points",
              1: "Three source points: moving orthogonal to source points plane and through",
@@ -122,28 +122,61 @@ class riccati_observer():
 
     def checkObservability(self, dirs, angular, linear, lm, lmGt):
         if len(lm) >= 3:
-            # check if align:
+            # check if align
             aligned = self.checkAlignedPoints(lmGt)
-            # if aligned:
-                # return (False, 1)
-            return(True, -1)
-        if len(lm) == 3:
+            if aligned:
+                return (False, 1)
             motionless = self.checkMotionless(angular, linear)
-
-            danger_cylinder = self.checkDangerCylinder(lm, lmGt)
-            if danger_cylinder and motionless:
-                return (False, 3)
+            if len(lm) > 3 and motionless:
+                #TODO: horopter
+                pass
+            if len(lm) == 3:
+                motion_less_danger_cylinder = self.checkDangerCylinder(lm, lmGt)
+                if motion_less_danger_cylinder:
+                    return (False, 3)
+                if not motionless:
+                    moving_towards_point = self.checkMotion(angular, linear, lmGt)
+                    if moving_towards_point:
+                        return (False, 2)
             return (True, -1)
-
         return (False, 0)
     
+    def checkMotion(self, angular, linear, lmGt):
+        ori = self.soly[0:4]
+        ori /= np.linalg.norm(ori)
+        rot = self.rodrigues_formula(ori)
+        vel_F = self.remove_bar(rot, linear)
+        vel_F /= np.linalg.norm(vel_F)
+        base_vec = np.subtract(lmGt[2], lmGt[0])
+        base_vec /= np.linalg.norm(base_vec)
+        if np.allclose(np.dot(vel_F , base_vec), np.zeros(1), atol=0.0001):
+            pose = np.matmul(self.rodrigues_formula(self.soly[0:4]), self.soly[4:7])
+            for pt in lmGt:
+                vec = np.subtract(pose, pt)
+                vec /= np.linalg.norm(vec)
+                if np.allclose(np.dot(vec , base_vec), np.zeros(1), atol=0.0001):
+                    return True
+        return False
+        
     def checkAlignedPoints(self, lmGt):
         # just to simplify stuff, if there are algined points and the remaining points
         # are not at least 5 meters away (from the closet point on the line), the measurements
         # for the markers will not be used
 
         # check in simulation as well to see if we get the same behavior
-        return False
+        alignedCounter = 0
+        for group in combinations(lmGt, 3):
+            p1, p2, p3 = group
+            vec1 = np.subtract(p2, p1)
+            vec2 = np.subtract(p3, p1)
+            if np.allclose(np.cross(vec1, vec2), np.zeros(3), atol=np.ones(3)*0.01): 
+                alignedCounter += 1
+        if len(lmGt) <=5 and alignedCounter != 0:
+            return True
+        elif len(lmGt) > 5 and alignedCounter > 1:
+            return True
+        else:
+            return False
         
     def checkMotionless(self, angular, linear):
         if np.allclose(linear, np.zeros((3,1)), atol=1e-7):
@@ -154,11 +187,13 @@ class riccati_observer():
         a = np.transpose(self.function_S(np.subtract(lmGt[1],lmGt[0])))
         b = np.subtract(lmGt[0],lmGt[1]).reshape((3,1))
         c = np.array(lm[1]).reshape((3,1))
+        # c = np.subtract(pose, lmGt[1]).reshape((3,1))
         upper = np.hstack((a,b,c,np.zeros((3,1))))
 
-        a = np.transpose(self.function_S(np.subtract(lmGt[2],lmGt[1])))
+        a = np.transpose(self.function_S(np.subtract(lmGt[2],lmGt[0])))
         b = np.subtract(lmGt[0],lmGt[2]).reshape((3,1))
         c = np.array(lm[2]).reshape((3,1))
+        # c = np.subtract(pose, lmGt[2]).reshape((3,1))
         lower = np.hstack((a,b,np.zeros((3,1)),c))
         combined = np.vstack((upper, lower))
         det = np.linalg.det(combined)
@@ -268,7 +303,7 @@ class riccati_observer():
                     else:
                         output_C = np.vstack((output_C, C_landmark))
             except Exception as e:
-                print(f"OPS, function C {e}")
+                # print(f"OPS, function C {e}")
                 output_C = []
                 self.l = 0
                 self.z = []
@@ -282,6 +317,12 @@ class riccati_observer():
         Change frame (F -> B)
         '''
         return np.matmul(np.transpose(input_rot), input_p)
+    
+    def remove_bar(self, input_rot, input_p_bar):
+        '''
+        Change frame (B -> F)
+        '''
+        return np.matmul(np.linalg.inv(np.transpose(input_rot)), input_p_bar)
     
     def calculate_direction(self, landmark):
         direction = []
@@ -331,7 +372,8 @@ class riccati_observer():
                 output_omega_hat_p_bar_hat_dot = first_part
 
         elif self.which_eq == 1:
-            print("NO EQUATION 1")
+            pass
+            # print("NO EQUATION 1")
 
         elif self.which_eq == 2:
             ### First part ###
@@ -353,10 +395,7 @@ class riccati_observer():
                     Pi_d_bar_hat = self.function_Pi(d_bar_hat)
                     # S(R_hat.T z) Pi_d_bar_hat 
                     # first = np.cross(np.array(self.z_groundTruth[landmark_idx]), Pi_d_bar_hat)
-                    # print("cross \n", first)
                     first = np.matmul(self.function_S(np.array(self.z_groundTruth[landmark_idx])), Pi_d_bar_hat)
-                    # print("z est frame \n", np.array(self.z_groundTruth[landmark_idx]))
-                    # print("S \n ", self.function_S(np.array(self.z_groundTruth[landmark_idx])))
                     # |p_bar_hat - R_hat.T z| di
                     second = (np.linalg.norm(self.z_groundTruth[landmark_idx])*d).reshape((3,1))
                     final += np.matmul(first, second).reshape((3,))
@@ -396,7 +435,7 @@ class riccati_observer():
         input_P = input_P_flat.reshape((6,6))
 
         # (self.k, z, self.q, self.Q, self.V, self.l)
-
+        no_bar_vel = self.remove_bar(input_R_hat, self.linearVelocity)
         ####################################
         ####################################
         input_A = self.function_A()
@@ -491,9 +530,10 @@ class riccati_observer():
                 self.solt = next_time
 
                 self.running_rk45 = False
-                print('current_time', self.current_time, self.dt)
+                # print('current_time', self.current_time, self.dt)
             else:
-                print("---------------- Failed ----------------")
+                # print("---------------- Failed ----------------")
+                pass
             self.dt = new_dt
         ####################### Solver #######################
         ######################################################

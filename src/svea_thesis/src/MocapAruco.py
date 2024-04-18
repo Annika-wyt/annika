@@ -52,13 +52,11 @@ class MocapAruco:
 
         # Publisher
         self.MapArucoPub = rospy.Publisher('/aruco/detection/Groundtruth', ArucoArray, queue_size=1)    
-
-
         
     def run(self):
         while not rospy.is_shutdown():
             self.publishAruco()
-            rospy.sleep(20)
+            rospy.sleep(0.05)
 
     def publishAruco(self):
         self.publishing = True
@@ -90,12 +88,12 @@ class MocapAruco:
     def arucoCallback(self, msg, topic_name):
         if not self.publishing:
             try:
-                MapMocapTransform = self.buffer.lookup_transform('map', 'mocap', msg.header.stamp, rospy.Duration(0.5))
+                MapMocapTransform = self.buffer.lookup_transform('map', 'mocap', rospy.Time(), rospy.Duration(0.5))
                 MapAruco = tf2_geometry_msgs.do_transform_pose(msg, MapMocapTransform)
                 self.header = msg.header
+                self.arucoMsg[topic_name] = [MapAruco.pose.position.x, MapAruco.pose.position.y, MapAruco.pose.position.z, MapAruco.pose.orientation.x, MapAruco.pose.orientation.y, MapAruco.pose.orientation.z, MapAruco.pose.orientation.w]
             except Exception as e:
                 rospy.logerr(f'{e}')
-            self.arucoMsg[topic_name] = [MapAruco.pose.position.x, MapAruco.pose.position.y, MapAruco.pose.position.z, MapAruco.pose.orientation.x, MapAruco.pose.orientation.y, MapAruco.pose.orientation.z, MapAruco.pose.orientation.w]
 
     def GroundtruthCallback(self, MA10msg, MA11msg, MA12msg, MA13msg, MA14msg, MA15msg):
         arucoarray = ArucoArray()

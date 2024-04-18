@@ -59,14 +59,22 @@ class dummyMeasurement():
             self.pose = sim_solution[:,4:7]
             self.sim_time = sim_solution[:,-1]
         z=1
-        self.landmarkId = np.array([10, 11, 12, 13, 14, 15])
+        self.landmarkId = np.array([10,11,12,13,14,15,16,17,18,19,20,21])
         # landmark_pose = np.array([[-1.74, -2.34, 0.046], [-1.80, -1.85, 0.06], [-2, -2.2, 0.16], [1.5, 0.5, 1], [-1, 1, 0.5], [1, -1, 0]])
-        landmark_pose = np.array([[-2.5, 0, 5], 
-                                  [0,  0,  7.5], 
-                                #   [2.5,  5, 0], 
-                                #   [2,  6, 2], 
-                                #   [2,  4, 2], 
-                                  [2.5, 0, 5]])
+        landmark_pose = np.array([[1.2,  0.65,  0.08],
+                                  [1.2,  -0.65, 0.08],
+                                  [-1.2, 0.65,  0.08],
+                                  [-1.2, -0.65, 0.08],
+                                  [0.65, 1.2,   0.08],
+                                  [-0.65,1.2 ,  0.08],
+                                  [0.65, -1.2 , 0.08],
+                                  [-0.65,-1.2 , 0.08],
+                                  [0.0,  -1.0 , 0.08],
+                                  [0.0,  1.0 ,  0.08],
+                                  [-1.0, 0.0 ,  0.08],
+                                  [1.0,  0.0 ,  0.08]])
+        
+        
         self.landmarkPose = []
         for lId, lpose in zip(self.landmarkId, landmark_pose):
             lm = PoseStamped()

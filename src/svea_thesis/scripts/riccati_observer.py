@@ -4,11 +4,12 @@ import matplotlib.pyplot as plt
 import time as systemtime
 from itertools import combinations
 ERROR_MSG = {-1:"No error",
-             0: "Algined source points",
-             1: "Three source points: moving orthogonal to source points plane and through",
-             2: "Three source points: motionless C in danger cylinder",
-             3: "Three source points: moving on danger cylinder but not along any lines (weak)",
-             4: "Four + source points: on horopter curve",
+             0: "Not enough source points",
+             1: "Algined source points",
+             2: "Three non-aligned source points: moving along one of the straight lines of the danger cylinder and passing through a source point",
+             3: "Three non-aligned source points: motionless C in danger cylinder",
+             4: "Three non-aligned source points: moving on danger cylinder but not along any lines (weak)",
+             5: "Four + non-aligned source points: on horopter curve",
             }
 
 class riccati_observer():
@@ -98,10 +99,15 @@ class riccati_observer():
 
     def update_measurement(self, angular, linear, landmark, landmarkGroundTruth, current_time):
             direction = self.calculate_direction(landmark)
-            success, ErrMsg = self.checkObservability(direction, angular, linear, landmark, landmarkGroundTruth)
+            # success, ErrMsg = self.checkObservability(direction, angular, linear, landmark, landmarkGroundTruth)
             self.angularVelocity = angular
             self.linearVelocity = linear
-            self.ErrMsg = ErrMsg
+            if len(landmark) >2:
+                success = True
+                self.ErrMsg = -1
+            else:
+                success = False
+                self.ErrMsg = 0
             if success:
                 self.direction = direction
                 self.current_time = current_time
@@ -184,22 +190,25 @@ class riccati_observer():
         return False
     
     def checkDangerCylinder(self, lm, lmGt):
-        a = np.transpose(self.function_S(np.subtract(lmGt[1],lmGt[0])))
-        b = np.subtract(lmGt[0],lmGt[1]).reshape((3,1))
-        c = np.array(lm[1]).reshape((3,1))
-        # c = np.subtract(pose, lmGt[1]).reshape((3,1))
-        upper = np.hstack((a,b,c,np.zeros((3,1))))
+        if len(lmGt) == 3:
+            a = np.transpose(self.function_S(np.subtract(lmGt[1],lmGt[0])))
+            b = np.subtract(lmGt[0],lmGt[1]).reshape((3,1))
+            c = np.array(lm[1]).reshape((3,1))
+            # c = np.subtract(pose, lmGt[1]).reshape((3,1))
+            upper = np.hstack((a,b,c,np.zeros((3,1))))
 
-        a = np.transpose(self.function_S(np.subtract(lmGt[2],lmGt[0])))
-        b = np.subtract(lmGt[0],lmGt[2]).reshape((3,1))
-        c = np.array(lm[2]).reshape((3,1))
-        # c = np.subtract(pose, lmGt[2]).reshape((3,1))
-        lower = np.hstack((a,b,np.zeros((3,1)),c))
-        combined = np.vstack((upper, lower))
-        det = np.linalg.det(combined)
-        if det == 0:
+            a = np.transpose(self.function_S(np.subtract(lmGt[2],lmGt[0])))
+            b = np.subtract(lmGt[0],lmGt[2]).reshape((3,1))
+            c = np.array(lm[2]).reshape((3,1))
+            # c = np.subtract(pose, lmGt[2]).reshape((3,1))
+            lower = np.hstack((a,b,np.zeros((3,1)),c))
+            combined = np.vstack((upper, lower))
+            det = np.linalg.det(combined)
+            if det == 0:
+                return True
+            return False
+        else:
             return True
-        return False
     
     # def update_z(self, landmark):
     #     if not self.running_rk45:
@@ -390,7 +399,7 @@ class riccati_observer():
                 final = np.transpose(np.array([0, 0, 0], dtype=np.float64))
                 final2 = np.transpose(np.array([0, 0, 0], dtype=np.float64))
                 for landmark_idx in range(self.l):
-                    d = -np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
+                    d = np.array(self.z[landmark_idx]/ np.linalg.norm(self.z[landmark_idx]))
                     d_bar_hat = np.array(self.z_groundTruth[landmark_idx])/np.linalg.norm(self.z_groundTruth[landmark_idx])
                     Pi_d_bar_hat = self.function_Pi(d_bar_hat)
                     # S(R_hat.T z) Pi_d_bar_hat 

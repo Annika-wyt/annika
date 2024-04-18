@@ -73,14 +73,14 @@ class riccati_estimation():
         self.INtwistcallback = False
         ##############################################
         ################# Parameters #################
-        k = rospy.get_param("~k", 5)
+        k = rospy.get_param("~k", 55)
         q = rospy.get_param("~q", 10)
         v1 = rospy.get_param("~v1", 0.1)
         v2 = rospy.get_param("~v2", 1)
         # self.arucoIdToBeUsed = np.array([10,11,12,13,14,15,16,17,18]) #12-18
 
         self.estpose = np.array([0, 0, 0], dtype=np.float64)
-        self.estori = np.array([0.5, 0, 0, 0.5], dtype=np.float64) #w, x, y, z
+        self.estori = np.array([0, 0, 0, 0.5], dtype=np.float64) #w, x, y, z
         self.initpose = self.estpose
         self.estori /= np.linalg.norm(self.estori)
         self.initori = self.estori #w, x, y, z
@@ -99,14 +99,14 @@ class riccati_estimation():
         v                       = np.array([v1, v2]),
         p_riccati               = np.array([1, 100])
         )
-        # Twist = Subscriber('/actuation_twist', TwistWithCovarianceStamped)
-        Twist = Subscriber('/odometry/filtered', Odometry)
+        Twist = Subscriber('/actuation_twist', TwistWithCovarianceStamped)
+        # Twist = Subscriber('/odometry/filtered', Odometry)
         
         Landmark = Subscriber('/aruco/detection', ArucoArray)
         LandmarkGroudtruth = Subscriber('/aruco/detection/Groundtruth', ArucoArray)
 
         if WITH_LANDMARK:
-            sync = ApproximateTimeSynchronizer([Twist, Landmark, LandmarkGroudtruth], queue_size=1, slop=0.1)
+            sync = ApproximateTimeSynchronizer([Twist, Landmark, LandmarkGroudtruth], queue_size=1, slop=0.5)
             sync.registerCallback(self.TwistAndLandmarkCallback)
         else:
             sync = ApproximateTimeSynchronizer([Twist], queue_size=1, slop=0.2)
@@ -239,6 +239,7 @@ class riccati_estimation():
             arucoId.append(aruco.marker.id)
             for ArucoGroundtruth in LandmarkGroudtruthMsg.arucos:
                 # maybe dictionary is faster
+                # check len of landmark and landmarkGroundTruth
                 if ArucoGroundtruth.marker.id == aruco.marker.id:
                     # in map frame
                     landmarkGroundTruth.append([ArucoGroundtruth.marker.pose.pose.position.x, ArucoGroundtruth.marker.pose.pose.position.y, ArucoGroundtruth.marker.pose.pose.position.z])

@@ -19,3 +19,5 @@ site/
 simulated_result/
 result/
 cad/
+
+*.mp4

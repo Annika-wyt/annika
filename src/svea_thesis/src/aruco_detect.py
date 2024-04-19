@@ -32,7 +32,7 @@ class aruco_detect:
         self.SUB_CAMERA_INFO = rospy.get_param('~camera_info', '/camera/camera_info')
         
         self.ARUCO_DICT_NAME = rospy.get_param('~aruco_dict', 'DICT_4X4_250')
-        self.ARUCO_SIZE = rospy.get_param('~aruco_size', '0.365')
+        self.ARUCO_SIZE = rospy.get_param('~aruco_size', '0.1')
         self.ARUCO_TF_NAME = rospy.get_param('~aruco_tf_name', 'arucoCamera')
         self.PUB_ARUCO_POSE = rospy.get_param('~pub_aruco_pose', '/aruco/pose')
         

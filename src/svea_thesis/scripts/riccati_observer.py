@@ -210,28 +210,6 @@ class riccati_observer():
         else:
             return True
     
-    # def update_z(self, landmark):
-    #     if not self.running_rk45:
-    #         self.z = landmark
-    #         self.l = len(self.z)
-    #         self.Q = np.diag(np.hstack([np.diag(self.q*np.eye(3)) for i in range(self.l)])) if self.l != 0 else np.array([])
-
-    # def update_z_groundTruth(self, landmarkGroundtruth):
-    #     if not self.running_rk45:
-    #         self.z_groundTruth = landmarkGroundtruth
-
-    # def update_linear_velocity(self, linear_velocity):
-    #     if not self.running_rk45:
-    #         self.linearVelocity = linear_velocity
-
-    # def update_angular_velocity(self, angular_velocity):
-    #     if not self.running_rk45:
-    #         self.angularVelocity = angular_velocity
-
-    # def update_current_time(self, current_time):
-    #     if not self.running_rk45:
-    #         self.current_time = current_time
-
     def function_S(self, input):
         '''
         Create a 3x3 skew-symmetric matrix, S(x)y = x x y
@@ -274,20 +252,20 @@ class riccati_observer():
         '''
         return np.eye(3) - np.outer(input, input)
 
-    def function_d(self, input_rot, input_p, input_z):
-        '''
-        Calculate direction d_i(t) := R^T(t)(p(t) - z_i)/|p(t)-z_i|
-        Input:
-            Rotation matrix R: 3x3 array
-            pose p: 3x1 array
-            landmark z : 3x1 array
-            with_noise : boolean
-        Output: 
-            direction vector 3x1 array
-        '''
-        norm = (input_p - input_z)/np.linalg.norm(input_p - input_z)
-        dir = np.matmul(np.transpose(input_rot), norm)
-        return dir
+    # def function_d(self, input_rot, input_p, input_z):
+    #     '''
+    #     Calculate direction d_i(t) := R^T(t)(p(t) - z_i)/|p(t)-z_i|
+    #     Input:
+    #         Rotation matrix R: 3x3 array
+    #         pose p: 3x1 array
+    #         landmark z : 3x1 array
+    #         with_noise : boolean
+    #     Output: 
+    #         direction vector 3x1 array
+    #     '''
+    #     norm = (input_p - input_z)/np.linalg.norm(input_p - input_z)
+    #     dir = np.matmul(np.transpose(input_rot), norm)
+    #     return dir
 
     def function_C(self, input_R_hat):
         '''
@@ -299,6 +277,7 @@ class riccati_observer():
             try:
                 for landmark_idx in range(self.l):
                     d = self.direction[landmark_idx]
+                    d = -d
                     first = self.function_Pi(d)
                     # first = self.function_Pi(self.function_d(input_R, input_p, self.z[landmark_idx]))
 
@@ -338,6 +317,7 @@ class riccati_observer():
         for landmark_idx in range(len(landmark)):
             direction.append(np.array(landmark[landmark_idx]/ np.linalg.norm(landmark[landmark_idx])))
         return direction
+
     def observer_equations(self, input_p_bar_hat, input_R_hat, input_P):
         if self.which_eq == 0:
             # omega
@@ -359,6 +339,7 @@ class riccati_observer():
                     # first = np.matmul(np.transpose(input_R_hat), np.array(landmark[landmark_idx]))
                     #Pi_d
                     d = self.direction[landmark_idx]
+                    d = -d
                     Pi_d = self.function_Pi(d)
                     #(p_bar_hat - R_hat.T x z)
                     second = input_p_bar_hat - first

@@ -47,7 +47,7 @@ class dummyMeasurement():
         self.startTime = rospy.Time.now()
         self.current_time = (self.time - self.startTime).to_sec()
         
-        self.motion = "linear" #"static", "linear", "angular", "both"
+        self.motion = "static" #"static", "linear", "angular", "both"
         self.stepCounter = 0 
 
 
@@ -61,18 +61,21 @@ class dummyMeasurement():
         z=1
         self.landmarkId = np.array([10,11,12,13,14,15,16,17,18,19,20,21])
         # landmark_pose = np.array([[-1.74, -2.34, 0.046], [-1.80, -1.85, 0.06], [-2, -2.2, 0.16], [1.5, 0.5, 1], [-1, 1, 0.5], [1, -1, 0]])
-        landmark_pose = np.array([[1.2,  0.65,  0.08],
-                                  [1.2,  -0.65, 0.08],
-                                  [-1.2, 0.65,  0.08],
-                                  [-1.2, -0.65, 0.08],
-                                  [0.65, 1.2,   0.08],
-                                  [-0.65,1.2 ,  0.08],
-                                  [0.65, -1.2 , 0.08],
-                                  [-0.65,-1.2 , 0.08],
-                                  [0.0,  -1.0 , 0.08],
-                                  [0.0,  1.0 ,  0.08],
-                                  [-1.0, 0.0 ,  0.08],
-                                  [1.0,  0.0 ,  0.08]])
+        # landmark_pose = np.array([[1.2,  0.65,  0.08],
+        #                           [1.2,  -0.65, 0.08],
+        #                           [-1.2, 0.65,  0.08],
+        #                           [-1.2, -0.65, 0.08],
+        #                           [0.65, 1.2,   0.08],
+        #                           [-0.65,1.2 ,  0.08],
+        #                           [0.65, -1.2 , 0.08],
+        #                           [-0.65,-1.2 , 0.08],
+        #                           [0.0,  -1.0 , 0.08],
+        #                           [0.0,  1.0 ,  0.08],
+        #                           [-1.0, 0.0 ,  0.08],
+        #                           [1.0,  0.0 ,  0.08]])
+        landmark_pose = np.array([[-2.5, 1, 5], 
+                                  [0, 1,   7.5], 
+                                  [2.5,1,  5]])
         
         
         self.landmarkPose = []
@@ -132,13 +135,13 @@ class dummyMeasurement():
             print(e)
     def run(self):
         while not rospy.is_shutdown():
-            for i in range(5):
+            for i in range(1):
                 self.time = rospy.Time.now()
                 self.current_time = (self.time - self.startTime).to_sec()
                 if self.motion != "bag":
                     self.publishBaselink(None)
                     self.publishTwist(None, None)
-                    rospy.sleep(0.005)
+                    rospy.sleep(0.001)
             self.publishAruco()
             self.seq += 1
 
@@ -188,14 +191,14 @@ class dummyMeasurement():
         msg.header.frame_id = "map"
         msg.child_frame_id = self.svea_frame_name
         if self.motion == "static": 
-            msg.transform.translation = Vector3(*[2.500, 0.379, 5.000])
+            msg.transform.translation = Vector3(*[3.33,2.5, 4.5])
             rotation = [0, 0, 0, 1]
             rotation = rotation/np.linalg.norm(rotation)
             msg.transform.rotation = Quaternion(*rotation) #x, y, z, w
         elif self.motion == "linear":
             # msg.transform.translation = Vector3(*[-1/0.4*np.cos(0.4*self.current_time) + 1/0.4 - 3.5, 1, 0])
-            msg.transform.translation = Vector3(*[2.5, 0.2*self.current_time, 4.5])
-            rotation = np.array([0, 0, 0.5, 0.5])
+            msg.transform.translation = Vector3(*[0.2*self.current_time-5, 2.5, 4.5])
+            rotation = np.array([0, 0, 0, 0.5])
 
             # msg.transform.translation = Vector3(*[0, -1/0.4*np.cos(0.4*self.current_time) + 1/0.4,0])
             # rotation = np.array([0, 0, 0.5, 0.5])

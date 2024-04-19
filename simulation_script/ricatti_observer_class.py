@@ -154,8 +154,11 @@ class riccati_observer():
         Input: array
         Output P_x
         '''
+        # hmm: changed to outer: NO diff
         return np.eye(3) - np.matmul(input, np.transpose(input))
+        # return np.eye(3) - np.outer(input, input)
 
+    # hmm: not using d in input simulation: got the first measurement from the dummy input/ simulation. (only ran the first step to check) same in static condition, diff in linear (prob caz at different time step)
     def function_d(self, input_rot, input_p, input_z, with_noise):
         '''
         Calculate direction d_i(t) := R^T(t)(p(t) - z_i)/|p(t)-z_i|
@@ -169,19 +172,20 @@ class riccati_observer():
         '''
         norm = (input_p - input_z)/np.linalg.norm(input_p - input_z)
         dir = np.matmul(np.transpose(input_rot), norm)
-        
-        if with_noise:
-            '''
-            calculate noisy d = sign(d_{i,3}) / demon (d_{i,1}/d_{i,3} + n_{n,1}, d_{i,2}/d_{i,3} + n_{i,2}, 1).T
-            demon = sqrt((d_{i,1}/d_{i,3} + n_{n,1})^2 + (d_{i,2}/d_{i,3} + n_{i,2})^2 + 1)
-            '''
-            dir = dir.flatten()
-            n_1 = np.random.uniform(-0.005, 0.005, 1)[0]
-            n_2 = np.random.uniform(-0.005, 0.005, 1)[0]
-            d1_d3 = dir[0]/dir[2] + n_1
-            d2_d3 = dir[1]/dir[2] + n_2
-            demon = np.sqrt(d1_d3**2 + d2_d3**2 + 1)
-            dir = (np.sign(dir[2])/ demon) * np.array([[d1_d3, d2_d3, 1]]).T
+
+        # hmm: removed the following part
+        # if with_noise:
+        #     '''
+        #     calculate noisy d = sign(d_{i,3}) / demon (d_{i,1}/d_{i,3} + n_{n,1}, d_{i,2}/d_{i,3} + n_{i,2}, 1).T
+        #     demon = sqrt((d_{i,1}/d_{i,3} + n_{n,1})^2 + (d_{i,2}/d_{i,3} + n_{i,2})^2 + 1)
+        #     '''
+        #     dir = dir.flatten()
+        #     n_1 = np.random.uniform(-0.005, 0.005, 1)[0]
+        #     n_2 = np.random.uniform(-0.005, 0.005, 1)[0]
+        #     d1_d3 = dir[0]/dir[2] + n_1
+        #     d2_d3 = dir[1]/dir[2] + n_2
+        #     demon = np.sqrt(d1_d3**2 + d2_d3**2 + 1)
+        #     dir = (np.sign(dir[2])/ demon) * np.array([[d1_d3, d2_d3, 1]]).T
         return dir
 
     def function_C(self, input_R, input_R_hat, input_p, input_z, with_noise, num_landmarks):
@@ -192,6 +196,7 @@ class riccati_observer():
         '''
         for landmark_idx in range(num_landmarks):
             # S(R_hat.T x z)
+            # hmm: d calculation is different: same as above
             first = self.function_Pi(self.function_d(input_R, input_p, np.transpose(input_z[landmark_idx]), with_noise))
             second = self.function_S(np.matmul(np.transpose(input_R_hat), np.transpose(input_z[landmark_idx])))
             final = -np.matmul(first, second)
@@ -215,11 +220,14 @@ class riccati_observer():
         return np.matmul(np.linalg.inv(np.transpose(input_rot)), input_p_bar)
 
     def GetlinVelocity(self, t):
-        return np.transpose(np.array([[0.2, 0, 0]]))
+        return np.transpose(np.array([[0, 0, 0]]))
+        # return np.transpose(np.array([[0.2, 0, 0]]))
     def GetAngVelocity(self, t):
         return np.transpose(np.array([[0, 0, 0]]))
+        # return np.transpose(np.array([[0, 0, 0]]))
     def GetPose(self, t):
-        return np.transpose(np.array([[0, 0.2*self.current_time - 8, 5]]))
+        return np.transpose(np.array([[3.33, 2.5, 4.5]]))
+        # return np.transpose(np.array([[0.2*t-5, 2.5, 4.5]]))
     
     def visual_plot(self, figsize = (20, 4), bound_y=True):
         '''
@@ -405,9 +413,6 @@ class riccati_observer():
         return figure, ax, plot_act_lambda_bar, plot_act_p_bar
         ###############################################################################################################################
         ###############################################################################################################################
-
-
-
 
     def observer_equations(self, input_omega, input_p_bar_hat, input_R, input_v, num_landmarks, input_q, input_R_hat, input_z, input_p, with_noise, input_k, input_P, which_eq):
         if which_eq == 0:
@@ -710,6 +715,7 @@ class riccati_observer():
         ######################################################
         ####################### Solver #######################
         start_time = systemtime.time()
+        time_zero = start_time
         run_time = systemtime.time()
         while self.current_time <= self.time[1]:
             # print(f"Simulation time: {current_time} Run time: {systemtime.time()-run_time}", end='\r', flush=True) 
@@ -757,8 +763,8 @@ class riccati_observer():
                         else:
                             self.dt = abs(self.image_time[min(self.i, len(self.image_time)-1)] - next_time)
                     else:
-                        self.dt = new_dt
-                    self.current_time = next_time
+                        self.dt = self.stepsize #new_dt
+                    self.current_time = systemtime.time() - time_zero #next_time
                 else:
                     self.dt = new_dt
             else:

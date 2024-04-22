@@ -280,11 +280,11 @@ class riccati_observer():
                     d = -d
                     first = self.function_Pi(d)
                     # first = self.function_Pi(self.function_d(input_R, input_p, self.z[landmark_idx]))
-
+                    
                     # S(R_hat.T x z) TODO: different from original
                     # second = np.matmul(np.transpose(input_R_hat), np.array(landmark[landmark_idx])) 
                     second = self.function_S(np.matmul(np.transpose(input_R_hat), np.array(self.z_groundTruth[landmark_idx]))) # self.function_S(np.matmul(np.transpose(input_R_hat), self.z[landmark_idx])) #TODO
-                    final = -np.cross(first, second)
+                    final = -np.matmul(first, second)
                     C_landmark = np.hstack((final, first))
                     if landmark_idx == 0:
                         output_C = C_landmark
@@ -316,6 +316,7 @@ class riccati_observer():
         direction = []
         for landmark_idx in range(len(landmark)):
             direction.append(np.array(landmark[landmark_idx]/ np.linalg.norm(landmark[landmark_idx])))
+        # print("direction, ", direction)
         return direction
 
     def observer_equations(self, input_p_bar_hat, input_R_hat, input_P):
@@ -429,14 +430,20 @@ class riccati_observer():
         ####################################
         ####################################
         input_A = self.function_A()
+        # print("input_A \n", input_A)
+        # print("===========================")
         if len(self.z) != 0:
             input_C = self.function_C(input_R_hat)
+        # print("input_C \n", input_C)
+        # print("===========================")
         ####################################
         ####################################
 
         ####################################
         ############# Observer #############
         output_omega_hat_p_bar_hat_dot = self.observer_equations(input_p_bar_hat, input_R_hat, input_P)
+        # print("output_omega_hat_p_bar_hat_dot \n", output_omega_hat_p_bar_hat_dot)
+        # print("===========================")
         ############# Observer #############
         ####################################
         
@@ -445,7 +452,8 @@ class riccati_observer():
         else:
             output_P_dot = np.matmul(input_A, input_P) + np.matmul(input_P, np.transpose(input_A)) + self.V
         p_bar_hat_dot = output_omega_hat_p_bar_hat_dot[3:]
-
+        # print("output_P_dot \n", output_P_dot)
+        # print("===========================")
         omega_hat = output_omega_hat_p_bar_hat_dot[0:3]
 
         ####################################
@@ -462,7 +470,8 @@ class riccati_observer():
                                 [omega_hat[1], -omega_hat[2], 0, omega_hat[0]],
                                 [omega_hat[2], omega_hat[1], -omega_hat[0], 0]])
         output_qua_hat_flat = 0.5*np.matmul(omega_hat_4x4, qua_hat_flat)
-
+        # print("np.concatenate((output_qua_hat_flat, p_bar_hat_dot, output_P_dot.flatten())) \n", np.concatenate((output_qua_hat_flat, p_bar_hat_dot, output_P_dot.flatten())))
+        # print("===========================")
         return np.concatenate((output_qua_hat_flat, p_bar_hat_dot, output_P_dot.flatten()))
         ########### Quaternion ############
         ####################################
@@ -493,9 +502,9 @@ class riccati_observer():
 
         error = np.abs(y_next - y_next_4)
         error_norm = np.linalg.norm(error)
-        safety_factor = 0.5
-        min_scale_factor = 0.02
-        max_scale_factor = 40.0
+        safety_factor = 0.8
+        min_scale_factor = 0.2
+        max_scale_factor = 10.0
         if error_norm <= self.tol:
             success = True
             t = self.current_time+self.dt
@@ -512,7 +521,7 @@ class riccati_observer():
         ####################### Solver #######################
         self.running_rk45 = True
         success = False
-        self.dt = self.stepsize
+        # self.dt = self.stepsize
         while not success:
             y_next, next_time, new_dt, success = self.rk45_step()
             if success:
@@ -520,10 +529,10 @@ class riccati_observer():
                 self.solt = next_time
 
                 self.running_rk45 = False
-                # print('current_time', self.current_time, self.dt)
+                print('current_time', self.current_time, self.dt)
             else:
-                # print("---------------- Failed ----------------")
-                pass
+                print("---------------- Failed ----------------")
+                # pass
             self.dt = new_dt
         ####################### Solver #######################
         ######################################################

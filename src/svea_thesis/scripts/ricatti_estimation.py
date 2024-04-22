@@ -88,8 +88,8 @@ class riccati_estimation():
         ################# Parameters #################
         ##############################################
         self.riccati_obj = riccati_observer(
-        stepsize                = 0.01,
-        tol                     = 1e-2 * 5, #1e-2 * 3,
+        stepsize                = 0.1,
+        tol                     = 1e-2 * 2, #1e-2 * 3,
         which_eq                = 0,
         p_hat                   = self.estpose, # sth from state or just input from lanuch file,
         Lambda_bar_0            = self.estori, #np.hstack((self.estori[-1], self.estori[0:-1])), # sth from state or just input from lanuch file,  # quaternion: w, x, y, z
@@ -106,7 +106,7 @@ class riccati_estimation():
         LandmarkGroudtruth = Subscriber('/aruco/detection/Groundtruth', ArucoArray)
 
         if WITH_LANDMARK:
-            sync = ApproximateTimeSynchronizer([Twist, Landmark, LandmarkGroudtruth], queue_size=10, slop=0.01)
+            sync = ApproximateTimeSynchronizer([Twist, Landmark, LandmarkGroudtruth], queue_size=10, slop=0.01) #maybe????, but should only apply to cases with changing velocity
             sync.registerCallback(self.TwistAndLandmarkCallback)
         else:
             sync = ApproximateTimeSynchronizer([Twist], queue_size=1, slop=0.2)
@@ -141,7 +141,7 @@ class riccati_estimation():
         # self.pubOdom2(timeStamp)
         msg = TransformStamped()
         msg.header.seq = self.seq
-        msg.header.stamp = timeStamp + rospy.Duration(dt)
+        msg.header.stamp = timeStamp #+ rospy.Duration(dt)
         msg.header.frame_id = 'map'
         msg.child_frame_id = 'base_link_est'
         pose = np.matmul(self.riccati_obj.rodrigues_formula(self.estori), self.estpose) #map frame
@@ -224,7 +224,7 @@ class riccati_estimation():
                 self.startTime = TwistMsg.header.stamp
             self.pubRiccatiMsg()
             self.timeStamp = TwistMsg.header.stamp
-
+            
             linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
             angular_velocity = np.array([TwistMsg.twist.twist.angular.x, TwistMsg.twist.twist.angular.y, TwistMsg.twist.twist.angular.z])
 
@@ -245,8 +245,10 @@ class riccati_estimation():
                         # in map frame
                         landmarkGroundTruth.append([ArucoGroundtruth.marker.pose.pose.position.x, ArucoGroundtruth.marker.pose.pose.position.y, ArucoGroundtruth.marker.pose.pose.position.z])
                         break
-            rospy.loginfo(f"linear_velocity: {linear_velocity}")
-            rospy.loginfo(f"angular_velocity: {angular_velocity}")
+            # rospy.loginfo(f"linear_velocity: {linear_velocity}")
+            # rospy.loginfo(f"angular_velocity: {angular_velocity}")
+            # rospy.loginfo(f"pose: {TwistMsg.pose.pose.position}")
+            
 
             self.riccati_obj.update_measurement(angular_velocity, linear_velocity, landmark, landmarkGroundTruth, (self.timeStamp - self.startTime).to_sec())
             self.usedLandmark.publish(arucosUsed)
@@ -254,7 +256,7 @@ class riccati_estimation():
             self.visualDirection(landmark, LandmarkMsg, arucoId)
 
             solt, dt, soly, errMsg = self.riccati_obj.step_simulation()
-            rospy.loginfo(f'errMsg: {ERROR_MSG[errMsg]}')
+            # rospy.loginfo(f'errMsg: {ERROR_MSG[errMsg]}')
             dtMsg = Float32()
             dtMsg.data = dt
             self.dtPublisher.publish(dtMsg)
@@ -282,7 +284,7 @@ class riccati_estimation():
             ############################# Rot Mat        
             #############################        
             self.pub_EstPose(self.timeStamp, dt)
-            # print("===================================================")
+            print("===================================================")
             self.stop += 1
 
 

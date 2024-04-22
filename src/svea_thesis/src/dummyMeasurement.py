@@ -42,12 +42,12 @@ class dummyMeasurement():
         self.twistPub = rospy.Publisher("/odometry/filtered", Odometry, queue_size=1)
         self.seq = 0
         self.frame = "map" #TODO: need to add a transformation such that the landmark is in base_link frame
-        self.time = rospy.Time.now()
+        self.time = None
 
-        self.startTime = rospy.Time.now()
-        self.current_time = (self.time - self.startTime).to_sec()
+        self.startTime = None
+        self.current_time = 0
         
-        self.motion = "static" #"static", "linear", "angular", "both"
+        self.motion = "linear" #"static", "linear", "angular", "both"
         self.stepCounter = 0 
 
 
@@ -136,8 +136,13 @@ class dummyMeasurement():
     def run(self):
         while not rospy.is_shutdown():
             for i in range(1):
-                self.time = rospy.Time.now()
-                self.current_time = (self.time - self.startTime).to_sec()
+                if self.startTime == None:
+                    self.startTime = rospy.Time.now()
+                    self.time = self.startTime
+                    self.current_time = (self.time - self.startTime).to_sec()
+                else:
+                    self.time = rospy.Time.now()
+                    self.current_time = (self.time - self.startTime).to_sec()
                 if self.motion != "bag":
                     self.publishBaselink(None)
                     self.publishTwist(None, None)
@@ -158,6 +163,10 @@ class dummyMeasurement():
             linear = [0.2, 0, 0]
             # linear = [np.sin(0.4*self.current_time), 0, 0]
             angular = [0, 0, 0]
+            odometryMsg.pose.pose.position = Vector3(*[0.2*self.current_time-5, 2.5, 4.5])
+            rotation = np.array([0, 0, 0, 0.5])
+            rotation /= np.linalg.norm(rotation)
+            odometryMsg.pose.pose.orientation = Quaternion(*rotation) #x, y, z, w
         elif self.motion == "angular":
             linear = [-np.sin(0.4*self.current_time), np.cos(0.4*self.current_time), 0]
             angular = [0, 0, 0.3]

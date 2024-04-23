@@ -138,6 +138,11 @@ class aruco_detect:
             # debug
             if self.debug:
                 cv2.circle(gray, (int(aruco_msg.image_x), int(aruco_msg.image_y)), 50, (0,255,0), 2)
+                
+                cv2.circle(gray, (int(markerCorners[0][0]), int(markerCorners[0][1])), 20, (0,255,0), 4)
+                cv2.circle(gray, (int(markerCorners[1][0]), int(markerCorners[1][1])), 20, (0,255,0), 4)
+                cv2.circle(gray, (int(markerCorners[2][0]), int(markerCorners[2][1])), 20, (0,255,0), 4)
+                cv2.circle(gray, (int(markerCorners[3][0]), int(markerCorners[3][1])), 20, (0,255,0), 4)
                 self.image_pub.publish(CvBridge().cv2_to_imgmsg(gray, "passthrough"))
 
             ## Publish  

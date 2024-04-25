@@ -73,14 +73,14 @@ class riccati_estimation():
         self.INtwistcallback = False
         ##############################################
         ################# Parameters #################
-        k = rospy.get_param("~k", 1)
+        k = rospy.get_param("~k", 16)
         q = rospy.get_param("~q", 10)
         v1 = rospy.get_param("~v1", 0.1)
         v2 = rospy.get_param("~v2", 1)
         # self.arucoIdToBeUsed = np.array([10,11,12,13,14,15,16,17,18]) #12-18
 
-        self.estpose = np.array([1, 0, 0], dtype=np.float64)
-        self.estori = np.array([1, 0, 0, 0.5], dtype=np.float64) #w, x, y, z
+        self.estpose = np.array([0, 0, 0], dtype=np.float64)
+        self.estori = np.array([0, 0, 0, -1.5], dtype=np.float64) #w, x, y, z #base_link
         self.initpose = self.estpose
         self.estori /= np.linalg.norm(self.estori)
         self.initori = self.estori #w, x, y, z
@@ -99,14 +99,14 @@ class riccati_estimation():
         v                       = np.array([v1, v2]),
         p_riccati               = np.array([1, 100])
         )
-        # Twist = Subscriber('/actuation_twist', TwistWithCovarianceStamped)
-        Twist = Subscriber('/odometry/filtered', Odometry)
+        Twist = Subscriber('/actuation_twist', TwistWithCovarianceStamped)
+        # Twist = Subscriber('/odometry/filtered', Odometry)
         
         Landmark = Subscriber('/aruco/detection', ArucoArray)
         LandmarkGroudtruth = Subscriber('/aruco/detection/Groundtruth', ArucoArray)
 
         if WITH_LANDMARK:
-            sync = ApproximateTimeSynchronizer([Twist, Landmark, LandmarkGroudtruth], queue_size=10, slop=0.01) #maybe????, but should only apply to cases with changing velocity
+            sync = ApproximateTimeSynchronizer([Landmark, LandmarkGroudtruth], queue_size=1, slop=4) #maybe????, but should only apply to cases with changing velocity
             sync.registerCallback(self.TwistAndLandmarkCallback)
         else:
             sync = ApproximateTimeSynchronizer([Twist], queue_size=1, slop=0.2)
@@ -117,7 +117,7 @@ class riccati_estimation():
         self.visualArucoPub = rospy.Publisher("/visual/cameraaruco", VMA, queue_size=10)
         
         self.time = rospy.Time.now()
-        self.pubOdom2(self.time)
+        # self.pubOdom2(self.time)
         self.pub_EstPose(self.time, 0)
 
     def pubOdom2(self, timeStamp):
@@ -143,23 +143,23 @@ class riccati_estimation():
         msg.header.seq = self.seq
         msg.header.stamp = timeStamp #+ rospy.Duration(dt)
         msg.header.frame_id = 'map'
-        msg.child_frame_id = 'camera_est'
-        pose = np.matmul(self.riccati_obj.rodrigues_formula(self.estori), self.estpose) #camera in map frame
-        camera_base = self.buffer.lookup_transform("camera", "svea5", rospy.Time(), rospy.Duration(2)) # base link in map frame
-        Posemsg = PoseStamped()
-        Posemsg.header = msg.header
-        Posemsg.pose.position.x = pose[0]
-        Posemsg.pose.position.y = pose[1]
-        Posemsg.pose.position.z = pose[2]
-        Posemsg.pose.orientation.w = self.estori[0]
-        Posemsg.pose.orientation.x = self.estori[1]
-        Posemsg.pose.orientation.y = self.estori[2]
-        Posemsg.pose.orientation.z = self.estori[3]
-
-        base_pose = tf2_geometry_msgs.do_transform_pose(Posemsg, camera_base)
         msg.child_frame_id = 'base_link_est'
-        msg.transform.translation = base_pose.pose.position #self.estpose -> in B frame
-        msg.transform.rotation = base_pose.pose.orientation
+        pose = np.matmul(self.riccati_obj.rodrigues_formula(self.estori), self.estpose) #camera in map frame
+        PoseChange = Vector3Stamped()
+        PoseChange.vector.x = pose[0]
+        PoseChange.vector.y = pose[1]
+        PoseChange.vector.z = pose[2]
+        # camera_to_base_transform = self.buffer.lookup_transform("svea5", "camera", rospy.Time(), rospy.Duration(2)) # camera in svea5
+        # camera_to_base_transform.transform.rotation = Quaternion(*[0, 0, 0, 1])
+        # transformed_direction = tf2_geometry_msgs.do_transform_vector3(PoseChange, camera_to_base_transform)
+
+        msg.transform.translation.x = pose[0] #transformed_direction.vector.x
+        msg.transform.translation.y = pose[1] #transformed_direction.vector.y
+        msg.transform.translation.z = pose[2] #transformed_direction.vector.z
+        msg.transform.rotation.w = self.estori[0]
+        msg.transform.rotation.x = self.estori[1]
+        msg.transform.rotation.y = self.estori[2]
+        msg.transform.rotation.z = self.estori[3]
 
         # msg.transform.rotation = Quaternion(*self.estori) #x, y, z, w
         self.sbr.sendTransform(msg)
@@ -249,15 +249,15 @@ class riccati_estimation():
             Pmsg.poses.append(posemsg)
         self.RiccatiDirPublisher.publish(Pmsg)
 
-    def TwistAndLandmarkCallback(self, TwistMsg, LandmarkMsg, LandmarkGroudtruthMsg):
+    def TwistAndLandmarkCallback(self, LandmarkMsg, LandmarkGroudtruthMsg):
         # if self.stop <1:
             if self.startTime == None:
-                self.startTime = TwistMsg.header.stamp
+                self.startTime = LandmarkMsg.header.stamp
             self.pubRiccatiMsg()
-            self.timeStamp = TwistMsg.header.stamp
+            self.timeStamp = LandmarkMsg.header.stamp
             
-            linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
-            angular_velocity = np.array([TwistMsg.twist.twist.angular.x, TwistMsg.twist.twist.angular.y, TwistMsg.twist.twist.angular.z])
+            linear_velocity = np.array([ 0, 0, 0])
+            angular_velocity = np.array([0, 0, 0])
 
             landmark = []
             landmarkGroundTruth = []
@@ -266,8 +266,21 @@ class riccati_estimation():
             arucoId = []
 
             for aruco in LandmarkMsg.arucos:
+                camera_to_base_transform = self.buffer.lookup_transform("svea5", "camera", rospy.Time(), rospy.Duration(2)) # camera in svea5
+                # a = np.array([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])
+                a = np.array([aruco.image_x, aruco.image_y, 1])
+                a /= np.linalg.norm(a)
+                dir_msg = Vector3Stamped()
+                dir_msg.vector.x = a[0]
+                dir_msg.vector.y = a[1]
+                dir_msg.vector.z = a[2]
+                transformed_direction = tf2_geometry_msgs.do_transform_vector3(dir_msg, camera_to_base_transform)
+                b = np.array([transformed_direction.vector.x, transformed_direction.vector.y, transformed_direction.vector.z])
+                print(b/np.linalg.norm(b))
+                print(a)
+                print("==============")
                 # landmark.append([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])
-                landmark.append([aruco.image_x, aruco.image_y, 1])
+                landmark.append([transformed_direction.vector.x, transformed_direction.vector.y, transformed_direction.vector.z])
                 arucosUsed.arucos.append(aruco)
                 arucoId.append(aruco.marker.id)
                 for ArucoGroundtruth in LandmarkGroudtruthMsg.arucos:

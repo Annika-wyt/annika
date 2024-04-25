@@ -315,8 +315,9 @@ class riccati_observer():
     def calculate_direction(self, landmark):
         direction = []
         for landmark_idx in range(len(landmark)):
-            direction.append(np.array(landmark[landmark_idx]/ np.linalg.norm(landmark[landmark_idx])))
-        # print("direction, ", direction)
+            a = np.array(landmark[landmark_idx]/ np.linalg.norm(landmark[landmark_idx]))
+            # a = -a
+            direction.append(a)
         return direction
 
     def observer_equations(self, input_p_bar_hat, input_R_hat, input_P):

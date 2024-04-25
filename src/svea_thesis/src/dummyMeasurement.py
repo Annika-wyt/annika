@@ -13,8 +13,15 @@ import tf
 # import pandas as pd
 
 from message_filters import Subscriber, ApproximateTimeSynchronizer
+from visualization_msgs.msg import Marker as VM
+from visualization_msgs.msg import MarkerArray as VMA
+from std_msgs.msg import Float32, ColorRGBA
+
+import cv2
 
 AveAll = True
+camera_matrix = np.array([[514.578298266441, 0, 340.0718185830948], [0, 514.8684665452305, 231.4918039429434], [0, 0, 1]])
+distortion_coeffs = np.array([0.06295602826790396, -0.1840231372229633, -0.004945725015870819, 0.01208470957502327, 0])
 class dummyMeasurement():
     def __init__(self):
         rospy.init_node("dummyMeasurement")
@@ -28,6 +35,7 @@ class dummyMeasurement():
         rospy.Subscriber("/qualisys/svea5/odom", Odometry, self.odomCallback)
         rospy.Subscriber("/actuation_twist", TwistWithCovarianceStamped, self.TwistCallback)
 
+        self.visualArucoPub = rospy.Publisher("/visual/cameraaruco", VMA, queue_size=10)
 
         if AveAll:
             self.linearXRunningAvg = np.array([0, 0, 0])
@@ -73,9 +81,9 @@ class dummyMeasurement():
         #                           [0.0,  1.0 ,  0.08],
         #                           [-1.0, 0.0 ,  0.08],
         #                           [1.0,  0.0 ,  0.08]])
-        landmark_pose = np.array([[-2.5, 1, 5], 
-                                  [0, 1,   7.5], 
-                                  [2.5,1,  5]])
+        landmark_pose = np.array([[-1.5,  1.5  , 1], 
+                                  [0,     0,     1],
+                                  [1.5,   1.5  , 1]])
         
         
         self.landmarkPose = []
@@ -93,7 +101,6 @@ class dummyMeasurement():
         self.listener = tf2_ros.TransformListener(self.buffer)
         self.br = tf2_ros.TransformBroadcaster()
         self.sbr = tf2_ros.StaticTransformBroadcaster()
-
 
     def TwistCallback(self, msg):
         odometryMsg = Odometry()
@@ -123,7 +130,7 @@ class dummyMeasurement():
     def OdomVelCallback(self, Odommsg, Velmsg):
         try:
             self.publishBaselink(Odommsg)
-            transform_base_map = self.buffer.lookup_transform(self.svea_frame_name, "map", rospy.Time(), rospy.Duration(0.5))
+            transform_base_map = self.buffer.lookup_transform("self.svea_frame_name", "map", rospy.Time(), rospy.Duration(0.5))
             transMsg = Vector3Stamped()
             print("transform_base_map", transform_base_map)
             transMsg.header = Velmsg.header
@@ -161,7 +168,7 @@ class dummyMeasurement():
             angular = [0, 0, 0]
         elif self.motion == "linear":
             linear = [0.2, 0, 0]
-            # linear = [np.sin(0.4*self.current_time), 0, 0]
+            # linear = [np.sin(0.2*self.current_time), 0, 0]
             angular = [0, 0, 0]
             odometryMsg.pose.pose.position = Vector3(*[0.2*self.current_time-5, 2.5, 4.5])
             rotation = np.array([0, 0, 0, 0.5])
@@ -205,8 +212,8 @@ class dummyMeasurement():
             rotation = rotation/np.linalg.norm(rotation)
             msg.transform.rotation = Quaternion(*rotation) #x, y, z, w
         elif self.motion == "linear":
-            # msg.transform.translation = Vector3(*[-1/0.4*np.cos(0.4*self.current_time) + 1/0.4 - 3.5, 1, 0])
-            msg.transform.translation = Vector3(*[0.2*self.current_time-5, 2.5, 4.5])
+            # msg.transform.translation = Vector3(*[-1/0.2*np.cos(0.2*self.current_time) + 1/0.2 - 2, -2, 0])
+            msg.transform.translation = Vector3(*[0.2*self.current_time-2, -2, 0])
             rotation = np.array([0, 0, 0, 0.5])
 
             # msg.transform.translation = Vector3(*[0, -1/0.4*np.cos(0.4*self.current_time) + 1/0.4,0])
@@ -234,6 +241,25 @@ class dummyMeasurement():
             msg.transform.rotation = Quaternion(*self.ori[self.stepCounter]) #x, y, z, w
             self.stepCounter += 1
         self.br.sendTransform(msg)
+        visualarr = VMA()
+        visualmarker = VM()
+        visualmarker.header.stamp = self.time
+        visualmarker.header.frame_id = "map"
+        visualmarker.ns = "sveapose"
+        visualmarker.id = 1
+        visualmarker.type = VM.CUBE
+        visualmarker.action = VM.ADD
+        visualmarker.pose.position.x = msg.transform.translation.x
+        visualmarker.pose.position.y = msg.transform.translation.y
+        visualmarker.pose.position.z = msg.transform.translation.z
+        visualmarker.pose.orientation.w = msg.transform.rotation.w
+        visualmarker.pose.orientation.x = msg.transform.rotation.x
+        visualmarker.pose.orientation.y = msg.transform.rotation.y
+        visualmarker.pose.orientation.z = msg.transform.rotation.z
+        visualmarker.scale = Vector3(*[0.2, 0.2, 0.2])
+        visualmarker.color = ColorRGBA(*[0, 1, 0, 1.0])
+        visualarr.markers.append(visualmarker)
+        self.visualArucoPub.publish(visualarr)
 
     def publishAruco(self):
 
@@ -256,9 +282,10 @@ class dummyMeasurement():
         arucoArrayMsg2.header.seq = self.seq
         arucoArrayMsg2.header.stamp = self.time
         arucoArrayMsg2.header.frame_id = self.frame
+        visualarr = VMA()
 
         try:
-            transform_map_baselink = self.buffer.lookup_transform(self.svea_frame_name,"map", rospy.Time(), rospy.Duration(0.5))  #rospy.Time.now()
+            transform_map_baselink = self.buffer.lookup_transform("camera","map", rospy.Time(), rospy.Duration(0.5))  #rospy.Time.now()
 
             for id, landmark in zip(self.landmarkId, self.landmarkPose):
                 position = tf2_geometry_msgs.do_transform_pose(landmark, transform_map_baselink) 
@@ -276,21 +303,42 @@ class dummyMeasurement():
                 arucoMsg2.marker.id = id
                 arucoMsg2.marker.pose.pose.position = position.pose.position
                 arucoMsg2.marker.pose.pose.orientation = position.pose.orientation
+                points_3d = np.array([position.pose.position.x, position.pose.position.y, position.pose.position.z])
+                points_2d, _ = cv2.projectPoints(points_3d.reshape(-1, 1, 3), (0,0,0), (0,0,0), camera_matrix, distortion_coeffs)
+                arucoMsg2.image_x = points_2d.flatten()[0]
+                arucoMsg2.image_y = points_2d.flatten()[1]
                 arucoArrayMsg2.arucos.append(arucoMsg2)
 
                 msg = TransformStamped()
                 msg.header.seq = self.seq
                 msg.header.stamp = self.time
-                msg.header.frame_id = self.svea_frame_name
+                msg.header.frame_id = "camera"
                 msg.child_frame_id = 'lmBaseLink' + str(id)
                 msg.transform.translation = position.pose.position
                 msg.transform.rotation = position.pose.orientation #x, y, z, w
                 self.br.sendTransform(msg)
 
+                visualmarker = VM()
+                visualmarker.header = arucoMsg.marker.header
+                visualmarker.header.frame_id = "map"
+                visualmarker.ns = "Aruco"
+                visualmarker.id = id
+                visualmarker.type = VM.SPHERE
+                visualmarker.action = VM.ADD
+                visualmarker.pose = arucoMsg.marker.pose.pose
+                visualmarker.scale = Vector3(*[0.2, 0.2, 0.2])
+                visualmarker.color = ColorRGBA(*[0.0, 0.0, 1.0, 1.0])
+                visualarr.markers.append(visualmarker)
+
+
+            self.visualArucoPub.publish(visualarr)
+
+
             self.landmarkPub.publish(arucoArrayMsg)
             self.landmark2Pub.publish(arucoArrayMsg2)
-        except:
-            print("waiting for transform between " + self.svea_frame_name + " and map")
+        except Exception as e:
+            print(f"{e}")
+            # print("waiting for transform between " + self.svea_frame_name + " and map")
 
 if __name__ == "__main__":
     dummyMeasurement().run()

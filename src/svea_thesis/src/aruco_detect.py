@@ -58,10 +58,10 @@ class aruco_detect:
         self.image_pub = rospy.Publisher('/camera/image_detect', Image, queue_size=10)
 
         ## Subscribers
-        ts = mf.TimeSynchronizer([
+        ts = mf.ApproximateTimeSynchronizer([
             mf.Subscriber(self.SUB_IMAGE, Image),
             mf.Subscriber(self.SUB_CAMERA_INFO, CameraInfo),
-        ], queue_size=1)
+        ], queue_size=1, slop=0.5)
         ts.registerCallback(self.callback)
         rospy.loginfo(self.SUB_IMAGE)
 
@@ -133,8 +133,12 @@ class aruco_detect:
             markerCorners = aruco_corner[0]
 
             # aruco_msg.header = image.header
-            aruco_msg.image_x, aruco_msg.image_y = np.mean(markerCorners, axis=0)
-
+            center_x, center_y = np.mean(markerCorners, axis=0)
+            fx, fy = camera_info.K[0,0], camera_info.K[1,1]
+            cx, cy = camera_info.K[0,2], camera_info.K[1,2]
+            aruco_msg.image_x = (center_x - cx) / fx
+            aruco_msg.image_y = (center_y - cy) / fy
+    
             # debug
             if self.debug:
                 cv2.circle(gray, (int(aruco_msg.image_x), int(aruco_msg.image_y)), 50, (0,255,0), 2)

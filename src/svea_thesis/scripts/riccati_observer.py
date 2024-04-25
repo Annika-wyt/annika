@@ -277,7 +277,7 @@ class riccati_observer():
             try:
                 for landmark_idx in range(self.l):
                     d = self.direction[landmark_idx]
-                    d = -d
+                    # d = -d
                     first = self.function_Pi(d)
                     # first = self.function_Pi(self.function_d(input_R, input_p, self.z[landmark_idx]))
                     
@@ -340,7 +340,7 @@ class riccati_observer():
                     # first = np.matmul(np.transpose(input_R_hat), np.array(landmark[landmark_idx]))
                     #Pi_d
                     d = self.direction[landmark_idx]
-                    d = -d
+                    # d = -d
                     Pi_d = self.function_Pi(d)
                     #(p_bar_hat - R_hat.T x z)
                     second = input_p_bar_hat - first

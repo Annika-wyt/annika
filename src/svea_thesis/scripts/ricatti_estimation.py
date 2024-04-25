@@ -79,8 +79,8 @@ class riccati_estimation():
         v2 = rospy.get_param("~v2", 1)
         # self.arucoIdToBeUsed = np.array([10,11,12,13,14,15,16,17,18]) #12-18
 
-        self.estpose = np.array([0, 0, 0], dtype=np.float64)
-        self.estori = np.array([1, 0, 0, 0], dtype=np.float64) #w, x, y, z
+        self.estpose = np.array([1, 0, 0], dtype=np.float64)
+        self.estori = np.array([1, 0, 0, 0.5], dtype=np.float64) #w, x, y, z
         self.initpose = self.estpose
         self.estori /= np.linalg.norm(self.estori)
         self.initori = self.estori #w, x, y, z
@@ -143,19 +143,47 @@ class riccati_estimation():
         msg.header.seq = self.seq
         msg.header.stamp = timeStamp #+ rospy.Duration(dt)
         msg.header.frame_id = 'map'
+        msg.child_frame_id = 'camera_est'
+        pose = np.matmul(self.riccati_obj.rodrigues_formula(self.estori), self.estpose) #camera in map frame
+        camera_base = self.buffer.lookup_transform("camera", "svea5", rospy.Time(), rospy.Duration(2)) # base link in map frame
+        Posemsg = PoseStamped()
+        Posemsg.header = msg.header
+        Posemsg.pose.position.x = pose[0]
+        Posemsg.pose.position.y = pose[1]
+        Posemsg.pose.position.z = pose[2]
+        Posemsg.pose.orientation.w = self.estori[0]
+        Posemsg.pose.orientation.x = self.estori[1]
+        Posemsg.pose.orientation.y = self.estori[2]
+        Posemsg.pose.orientation.z = self.estori[3]
+
+        base_pose = tf2_geometry_msgs.do_transform_pose(Posemsg, camera_base)
         msg.child_frame_id = 'base_link_est'
-        pose = np.matmul(self.riccati_obj.rodrigues_formula(self.estori), self.estpose) #map frame
-        msg.transform.translation.x = pose[0] #self.estpose -> in B frame
-        msg.transform.translation.y = pose[1]
-        msg.transform.translation.z = pose[2]
+        msg.transform.translation = base_pose.pose.position #self.estpose -> in B frame
+        msg.transform.rotation = base_pose.pose.orientation
+
         # msg.transform.rotation = Quaternion(*self.estori) #x, y, z, w
-        msg.transform.rotation.w = self.estori[0]
-        msg.transform.rotation.x = self.estori[1]
-        msg.transform.rotation.y = self.estori[2]
-        msg.transform.rotation.z = self.estori[3]
         self.sbr.sendTransform(msg)
         self.seq += 1
         self.debugTopic.publish(msg)
+        visualarr = VMA()
+        visualmarker = VM()
+        visualmarker.header.stamp = timeStamp
+        visualmarker.header.frame_id = "map"
+        visualmarker.ns = "sveapose"
+        visualmarker.id = 0
+        visualmarker.type = VM.CUBE
+        visualmarker.action = VM.ADD
+        visualmarker.pose.position.x = msg.transform.translation.x
+        visualmarker.pose.position.y = msg.transform.translation.y
+        visualmarker.pose.position.z = msg.transform.translation.z
+        visualmarker.pose.orientation.w = self.estori[0]
+        visualmarker.pose.orientation.x = self.estori[1]
+        visualmarker.pose.orientation.y = self.estori[2]
+        visualmarker.pose.orientation.z = self.estori[3]
+        visualmarker.scale = Vector3(*[0.2, 0.2, 0.2])
+        visualmarker.color = ColorRGBA(*[255.0/450.0, 92.0/450.0, 103.0/450.0, 1.0])
+        visualarr.markers.append(visualmarker)
+        self.visualArucoPub.publish(visualarr)
 
     def pub_landmark(self, landmark,id):
         msg = TransformStamped()
@@ -183,6 +211,7 @@ class riccati_estimation():
         self.RiccatiSetupPublisher.publish(riccatiMsg)
 
     def visualizeAruco(self, ArucoList):
+        return
         visualarr = VMA()
         for aruco in ArucoList.arucos:
             visualmarker = VM()
@@ -198,6 +227,8 @@ class riccati_estimation():
             visualarr.markers.append(visualmarker)
         self.visualArucoPub.publish(visualarr)
 
+    
+
     def visualDirection(self, z, msg, arucoId):
         dirs = self.riccati_obj.calculate_direction(z)
         Pmsg = PoseArray()
@@ -207,7 +238,7 @@ class riccati_estimation():
             d = dirs[landmark_idx]
             Tmsg = TransformStamped()
             Tmsg.header = msg.header
-            Tmsg.header.frame_id = "svea5"
+            Tmsg.header.frame_id = "base_link_est"
             Tmsg.child_frame_id = 'Direction' + str(arucoId[landmark_idx])
             Tmsg.transform.translation = Vector3(*d)
             Tmsg.transform.rotation = Quaternion(*[0, 0, 0, 1]) #x, y, z, w
@@ -235,7 +266,8 @@ class riccati_estimation():
             arucoId = []
 
             for aruco in LandmarkMsg.arucos:
-                landmark.append([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])
+                # landmark.append([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])
+                landmark.append([aruco.image_x, aruco.image_y, 1])
                 arucosUsed.arucos.append(aruco)
                 arucoId.append(aruco.marker.id)
                 for ArucoGroundtruth in LandmarkGroudtruthMsg.arucos:

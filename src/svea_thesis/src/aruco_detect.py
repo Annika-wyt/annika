@@ -11,7 +11,7 @@ import message_filters as mf
 from sensor_msgs.msg import Image, CameraInfo
 from aruco_msgs.msg import Marker, MarkerArray
 from visualization_msgs.msg import Marker as VM
-from geometry_msgs.msg import TransformStamped, Point, Quaternion, Vector3, PoseStamped
+from geometry_msgs.msg import TransformStamped, Point, Quaternion, Vector3, PoseStamped, Vector3Stamped
 from cv_bridge import CvBridge
 from svea_msgs.msg import Aruco, ArucoArray
 from std_msgs.msg import ColorRGBA
@@ -110,6 +110,23 @@ class aruco_detect:
                     arucoPose.pose.orientation = Quaternion(*rotation)
                     transform_aruco_map = self.buffer.lookup_transform(self.base_link, 'camera', image.header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
                     position = tf2_geometry_msgs.do_transform_pose(arucoPose, transform_aruco_map) 
+                    markerCorners = aruco_corner[0]
+                    center_x, center_y = np.mean(markerCorners, axis=0)
+                    fx, fy = camera_info.P[0], camera_info.P[5]
+                    cx, cy = camera_info.P[2], camera_info.P[6]
+                    # transform_aruco_map = self.buffer.lookup_transform("base_link", 'camera', image.header.stamp, rospy.Duration(0.5))  #rospy.Time.now()
+                    # transform_aruco_map.transform.translation = Point(*[0, 0, 0])
+                    # transform_aruco_map.transform.rotation = Quaternion(*[0, 0, 0, 1])
+                    camera_x = (center_x - cx) / fx #camera frame
+                    camera_y = (center_y - cy) / fy
+                    aruco2D = PoseStamped()
+                    aruco2D.header = image.header
+                    temp = np.array([camera_x, camera_y, 1])
+                    temp /= np.linalg.norm(temp)
+                    aruco2D.pose.position = Point(*temp)
+                    aruco2D.pose.orientation = Quaternion(*rotation)
+                    # aruco2D.vector = Point(*[1, -camera_x, -camera_y])
+                    position2D = tf2_geometry_msgs.do_transform_pose(aruco2D, transform_aruco_map) 
                     # print("arucoPose", arucoPose)
 
                     t.header = position.header
@@ -130,15 +147,13 @@ class aruco_detect:
 
             #get the 2D image coordinate of the aruco marker
             aruco_msg = Aruco()
-            markerCorners = aruco_corner[0]
+            temp = np.array([position2D.pose.position.x, position2D.pose.position.y, position2D.pose.position.z])
+            temp /= np.linalg.norm(temp)
+            aruco_msg.image_x = temp[0] #vector.x
+            aruco_msg.image_y = temp[1] #vector.y
 
-            # aruco_msg.header = image.header
-            center_x, center_y = np.mean(markerCorners, axis=0)
-            fx, fy = camera_info.K[0,0], camera_info.K[1,1]
-            cx, cy = camera_info.K[0,2], camera_info.K[1,2]
-            aruco_msg.image_x = (center_x - cx) / fx
-            aruco_msg.image_y = (center_y - cy) / fy
-    
+            #TODO: either add image_z or share the raw pose of image_x and image_y
+
             # debug
             if self.debug:
                 cv2.circle(gray, (int(aruco_msg.image_x), int(aruco_msg.image_y)), 50, (0,255,0), 2)
@@ -161,9 +176,13 @@ class aruco_detect:
             
             Vmarker = VM()
             Vmarker.header = t.header
+            Vmarker.header.frame_id = self.base_link
             Vmarker.id = int(aruco_id)
-            Vmarker.pose.position = t.transform.translation
-            Vmarker.pose.orientation = t.transform.rotation
+            # temp = np.array([camera_x, camera_y, 1])
+            Vmarker.type = VM.SPHERE
+            Vmarker.action = VM.ADD
+            Vmarker.pose.position = Point(*temp)
+            Vmarker.pose.orientation = Quaternion(*[0, 0, 0, 1]) #t.transform.rotation
             Vmarker.scale = Vector3(*[0.1, 0.1, 0.1])
             Vmarker.color = ColorRGBA(*[0, 1, 0, 1])
             markerArray.markers.append(marker)

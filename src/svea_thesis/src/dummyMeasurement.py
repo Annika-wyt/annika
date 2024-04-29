@@ -17,6 +17,8 @@ from visualization_msgs.msg import Marker as VM
 from visualization_msgs.msg import MarkerArray as VMA
 from std_msgs.msg import Float32, ColorRGBA
 
+from sensor_msgs.msg import CameraInfo
+
 import cv2
 
 AveAll = True
@@ -36,6 +38,7 @@ class dummyMeasurement():
         rospy.Subscriber("/actuation_twist", TwistWithCovarianceStamped, self.TwistCallback)
 
         self.visualArucoPub = rospy.Publisher("/visual/cameraaruco", VMA, queue_size=10)
+        self.campub = rospy.Publisher("/camera/camera_info", CameraInfo, queue_size = 10)
 
         if AveAll:
             self.linearXRunningAvg = np.array([0, 0, 0])
@@ -55,7 +58,7 @@ class dummyMeasurement():
         self.startTime = None
         self.current_time = 0
         
-        self.motion = "linear" #"static", "linear", "angular", "both"
+        self.motion = "static" #"static", "linear", "angular", "both"
         self.stepCounter = 0 
 
 
@@ -67,7 +70,7 @@ class dummyMeasurement():
             self.pose = sim_solution[:,4:7]
             self.sim_time = sim_solution[:,-1]
         z=1
-        self.landmarkId = np.array([10,11,12,13,14,15,16,17,18,19,20,21])
+        self.landmarkId = np.array([11,12,14,15,16,17,18,19,20,21])
         # landmark_pose = np.array([[-1.74, -2.34, 0.046], [-1.80, -1.85, 0.06], [-2, -2.2, 0.16], [1.5, 0.5, 1], [-1, 1, 0.5], [1, -1, 0]])
         # landmark_pose = np.array([[1.2,  0.65,  0.08],
         #                           [1.2,  -0.65, 0.08],
@@ -81,9 +84,10 @@ class dummyMeasurement():
         #                           [0.0,  1.0 ,  0.08],
         #                           [-1.0, 0.0 ,  0.08],
         #                           [1.0,  0.0 ,  0.08]])
-        landmark_pose = np.array([[-1.5,  1.5  , 1], 
-                                  [0,     0,     1],
-                                  [1.5,   1.5  , 1]])
+        landmark_pose = np.array([[-0.3982733459472656, -0.3341578674316406, 0.10122600555419922], 
+                                  [-1.021384765625, -1.3663646240234375, 0.08791256713867188],
+                                  [-1.590159423828125, -0.7866044311523438, 0.0821039810180664],
+                                  [-0.7896022338867188, 0.3022557373046875, 0.07362690734863281]])
         
         
         self.landmarkPose = []
@@ -142,6 +146,7 @@ class dummyMeasurement():
             print(e)
     def run(self):
         while not rospy.is_shutdown():
+            # self.pubCameraInfo()
             for i in range(1):
                 if self.startTime == None:
                     self.startTime = rospy.Time.now()
@@ -150,12 +155,23 @@ class dummyMeasurement():
                 else:
                     self.time = rospy.Time.now()
                     self.current_time = (self.time - self.startTime).to_sec()
-                if self.motion != "bag":
-                    self.publishBaselink(None)
-                    self.publishTwist(None, None)
-                    rospy.sleep(0.001)
+                # if self.motion != "bag":
+                    # self.publishBaselink(None)
+                    # self.publishTwist(None, None)
+                    # rospy.sleep(0.001)
             self.publishAruco()
             self.seq += 1
+
+    def pubCameraInfo(self):
+        cam = CameraInfo()
+        cam.height = 720
+        cam.width = 1280
+        cam.distortion_model = "plumb_bob"
+        cam.D = [0.1047628804269683, -0.2294792634248884, -0.00246960020570932, -0.002432772303304122, 0]
+        cam.K = [1046.017603382867, 0, 637.7297160039146, 0, 1045.709085897633, 344.7307046566843, 0, 0, 1]
+        cam.R = [1, 0, 0, 0, 1, 0, 0, 0, 1]
+        cam.P = [1053.760165048383, 0, 634.6699965276354, 0, 0, 1059.559386601993, 343.5753848730548, 0, 0, 0, 1, 0]
+        self.campub.publish(cam)
 
     def publishTwist(self, Msg, transform):
         odometryMsg = Odometry()
@@ -207,7 +223,7 @@ class dummyMeasurement():
         msg.header.frame_id = "map"
         msg.child_frame_id = self.svea_frame_name
         if self.motion == "static": 
-            msg.transform.translation = Vector3(*[3.33,2.5, 4.5])
+            msg.transform.translation = Vector3(*[-1.5, 0.5 , 0])
             rotation = [0, 0, 0, 1]
             rotation = rotation/np.linalg.norm(rotation)
             msg.transform.rotation = Quaternion(*rotation) #x, y, z, w
@@ -283,10 +299,11 @@ class dummyMeasurement():
         arucoArrayMsg2.header.stamp = self.time
         arucoArrayMsg2.header.frame_id = self.frame
         visualarr = VMA()
+        list2d = np.array([[0.13244211551237228,0.03685241983429774], [-0.47923498405224174, 0.014646746223398321], [-0.24344701507965696, 0.0006049232047413362], [0.2617662646995518, 0.014973300247088019]])
 
         try:
             transform_map_baselink = self.buffer.lookup_transform("camera","map", rospy.Time(), rospy.Duration(0.5))  #rospy.Time.now()
-
+            count = 0
             for id, landmark in zip(self.landmarkId, self.landmarkPose):
                 position = tf2_geometry_msgs.do_transform_pose(landmark, transform_map_baselink) 
                 arucoMsg = Aruco()
@@ -304,9 +321,10 @@ class dummyMeasurement():
                 arucoMsg2.marker.pose.pose.position = position.pose.position
                 arucoMsg2.marker.pose.pose.orientation = position.pose.orientation
                 points_3d = np.array([position.pose.position.x, position.pose.position.y, position.pose.position.z])
-                points_2d, _ = cv2.projectPoints(points_3d.reshape(-1, 1, 3), (0,0,0), (0,0,0), camera_matrix, distortion_coeffs)
-                arucoMsg2.image_x = points_2d.flatten()[0]
-                arucoMsg2.image_y = points_2d.flatten()[1]
+
+                arucoMsg2.image_x = list2d[count][0]
+                arucoMsg2.image_y = list2d[count][1]
+                count += 1
                 arucoArrayMsg2.arucos.append(arucoMsg2)
 
                 msg = TransformStamped()

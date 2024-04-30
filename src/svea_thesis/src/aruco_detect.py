@@ -61,7 +61,7 @@ class aruco_detect:
 
         ## Static Transform
         self.transform_aruco_base = None
-        while self.transform_aruco_base == None:
+        while self.transform_aruco_base == None and not rospy.is_shutdown():
             self.GetStaticTransform()
 
         ## Subscribers
@@ -195,9 +195,9 @@ class aruco_detect:
             Vmarker.color = ColorRGBA(*[0, 1, 0, 1])
             markerArray.markers.append(marker)
             self.pub_aruco_marker.publish(Vmarker)
-            if aruco_id in arucoList:
-                CoorArray.header = t.header
-                CoorArray.arucos.append(aruco_msg)
+            # if aruco_id in arucoList:
+            CoorArray.header = t.header
+            CoorArray.arucos.append(aruco_msg)
         self.pub_aruco_marker_coordinate.publish(CoorArray)
 
 if __name__ == '__main__':

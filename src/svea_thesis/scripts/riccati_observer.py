@@ -84,10 +84,10 @@ class riccati_observer():
         self.Rot_hat = self.rodrigues_formula(self.Lambda_bar_0)
         self.p_bar_hat = self.add_bar(self.Rot_hat, self.p_hat)
         self.soly = np.concatenate((self.Lambda_bar_0.flatten(), self.p_bar_hat.flatten(), self.P_ricatti.flatten()))
-        print("SET INIT !!!!!!!!!!!!!!!!")
-        print("p_bar_hat", self.p_bar_hat)
-        print("Rot_hat", self.Rot_hat)
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("######################## SET INIT ########################")
+        print("####### p_bar_hat", self.p_bar_hat, "#######")
+        print("####### Rot_hat", self.Rot_hat, "#######")
+        print("################################################ ")
 
     def print_init(self):
         Q_str = '   \n'.join(['                             ' + '  '.join(map(str, row)) for row in self.Q])

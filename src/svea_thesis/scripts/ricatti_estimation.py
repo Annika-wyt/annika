@@ -50,9 +50,14 @@ class riccati_estimation():
         self.seq = 0
         self.t = 0
         
-        self.camera_to_base_transform = None
-        while self.camera_to_base_transform == None:
+        self.camera_to_base_transform = np.array([None])
+        self.ChangeVelocityRotMatrix = np.array([None])
+        self.transBaseCamPose = np.array([None])
+
+        while not isinstance(self.camera_to_base_transform, PoseStamped) or not isinstance(self.transBaseCamPose, PoseStamped) or not self.ChangeVelocityRotMatrix.any():
             self.GetStaticTransform()
+            if rospy.is_shutdown():
+                break
         self.CameraInfo = None
 
         # for debug
@@ -108,7 +113,7 @@ class riccati_estimation():
         LandmarkGroudtruth = Subscriber('/aruco/detection/Groundtruth', ArucoArray)
 
         if WITH_LANDMARK:
-            sync = ApproximateTimeSynchronizer([Landmark, LandmarkGroudtruth], queue_size=1, slop=1) #maybe????, but should only apply to cases with changing velocity
+            sync = ApproximateTimeSynchronizer([Twist, Landmark, LandmarkGroudtruth], queue_size=1, slop=1) #maybe????, but should only apply to cases with changing velocity
             sync.registerCallback(self.TwistAndLandmarkCallback)
         else:
             sync = ApproximateTimeSynchronizer([Twist], queue_size=1, slop=0.2)
@@ -119,16 +124,26 @@ class riccati_estimation():
         ##############################################
         
         self.pubinit = False
+        
         # self.pub_EstPose(rospy.Time.now(), 0)
         self.changeFrame(rospy.Time.now())
     def GetStaticTransform(self):
         try:
             # self.camera_to_base_transform = self.buffer.lookup_transform("camera", self.svea_frame_name, rospy.Time(), rospy.Duration(2)) #frame id = camera, child = svea5
-            transCamBase = self.buffer.lookup_transform(self.svea_frame_name, "camera", rospy.Time(), rospy.Duration(2)) #frame id = svea5, child = camera 
+            transCamBase = self.buffer.lookup_transform(self.svea_frame_name, "camera", rospy.Time(), rospy.Duration(1)) #frame id = svea5, child = camera 
             self.camera_to_base_transform = PoseStamped()
             self.camera_to_base_transform.pose.position = transCamBase.transform.translation
             self.camera_to_base_transform.pose.orientation = transCamBase.transform.rotation
-            print(self.camera_to_base_transform)
+            # print(self.camera_to_base_transform)
+        except Exception as e:
+            print(f"/ricatti_estimation/GetStaticTransform: {e}")
+
+        try:
+            transBaseCam = self.buffer.lookup_transform('camera', self.svea_frame_name, rospy.Time(), rospy.Duration(1))
+            self.transBaseCamPose = PoseStamped()
+            self.transBaseCamPose.pose.position = transBaseCam.transform.translation
+            self.transBaseCamPose.pose.orientation = transBaseCam.transform.rotation
+            self.ChangeVelocityRotMatrix = tf.transformations.quaternion_matrix([transBaseCam.transform.rotation.x, transBaseCam.transform.rotation.y, transBaseCam.transform.rotation.z, transBaseCam.transform.rotation.w])[:3, :3]
         except Exception as e:
             print(f"/ricatti_estimation/GetStaticTransform: {e}")
 
@@ -153,9 +168,8 @@ class riccati_estimation():
         msg2.transform.rotation.y = self.estori[2]
         msg2.transform.rotation.z = self.estori[3]
         self.sbr.sendTransform(msg2)
-        # print(msg2)
+
         transformed_direction = tf2_geometry_msgs.do_transform_pose(self.camera_to_base_transform, msg2) 
-        # print("transformed_direction", transformed_direction)
         msg = TransformStamped()
         msg.header.seq = self.seq
         msg.header.stamp = timeStamp #+ rospy.Duration(dt)
@@ -164,13 +178,14 @@ class riccati_estimation():
 
         msg.transform.translation = transformed_direction.pose.position
         msg.transform.rotation = transformed_direction.pose.orientation
+
         self.estori = np.array([transformed_direction.pose.orientation.w, transformed_direction.pose.orientation.x, transformed_direction.pose.orientation.y, transformed_direction.pose.orientation.z])
         self.estpose = np.array([transformed_direction.pose.position.x, transformed_direction.pose.position.y, transformed_direction.pose.position.z])
         pose = np.matmul(np.transpose(self.riccati_obj.rodrigues_formula(self.estori)), self.estpose)
         self.estpose = pose
         self.riccati_obj.set_init(self.estori, self.estpose)
         self.sbr.sendTransform(msg)
-        # print(msg)
+
         self.seq += 1
         self.pubinit = True
 
@@ -195,11 +210,7 @@ class riccati_estimation():
             self.sbr.sendTransform(msg2)
             # print(msg2)
             self.debugTopic.publish(msg2)
-            transBaseCam = self.buffer.lookup_transform("camera", self.svea_frame_name, rospy.Time(), rospy.Duration(2)) #frame id = svea5, child = camera 
-            transBaseCamPose = PoseStamped()
-            transBaseCamPose.pose.position = transBaseCam.transform.translation
-            transBaseCamPose.pose.orientation = transBaseCam.transform.rotation
-            transformed_direction = tf2_geometry_msgs.do_transform_pose(transBaseCamPose, msg2) 
+            transformed_direction = tf2_geometry_msgs.do_transform_pose(self.transBaseCamPose, msg2) 
 
             msg = TransformStamped()
             msg.header.seq = self.seq
@@ -210,7 +221,6 @@ class riccati_estimation():
             msg.transform.translation = transformed_direction.pose.position
             msg.transform.rotation = transformed_direction.pose.orientation
 
-            # print(msg)
             self.sbr.sendTransform(msg)
 
             self.seq += 1
@@ -256,7 +266,7 @@ class riccati_estimation():
         for idx, aruco in enumerate(ArucoList.arucos):
             visualmarker = VM()
             visualmarker.header = aruco.marker.header
-            visualmarker.header.frame_id = "svea5"
+            visualmarker.header.frame_id = self.svea_frame_name
             visualmarker.ns = "cameraAruco"
             visualmarker.id = aruco.marker.id
             visualmarker.type = VM.SPHERE
@@ -288,7 +298,7 @@ class riccati_estimation():
             Pmsg.poses.append(posemsg)
         self.RiccatiDirPublisher.publish(Pmsg)
 
-    def TwistAndLandmarkCallback(self, LandmarkMsg, LandmarkGroudtruthMsg):
+    def TwistAndLandmarkCallback(self, TwistMsg, LandmarkMsg, LandmarkGroudtruthMsg):
         # if self.stop <1:
         if self.camera_to_base_transform != None and self.CameraInfo != None and self.pubinit:
             if self.startTime == None:
@@ -296,8 +306,10 @@ class riccati_estimation():
             self.pubRiccatiMsg()
             self.timeStamp = LandmarkMsg.header.stamp
             
-            linear_velocity = np.array([0, 0, 0])
-            angular_velocity = np.array([0, 0, 0])
+            linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
+            linear_velocity = np.dot(self.ChangeVelocityRotMatrix, linear_velocity)    
+            angular_velocity = np.array([TwistMsg.twist.twist.angular.x, TwistMsg.twist.twist.angular.y, TwistMsg.twist.twist.angular.z])
+            angular_velocity = np.dot(self.ChangeVelocityRotMatrix, angular_velocity)    
 
             landmark = []
             landmarkGroundTruth = []
@@ -311,11 +323,6 @@ class riccati_estimation():
                 landmark.append(temp)
                 arucosUsed.arucos.append(aruco)
                 arucoId.append(aruco.marker.id)
-                # print(aruco.marker.id)
-                # print("2d", temp)
-                # b = np.array([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])
-                # b /= np.linalg.norm(b)
-                # print("3d", b)
                 for ArucoGroundtruth in LandmarkGroudtruthMsg.arucos:
                     if ArucoGroundtruth.marker.id == aruco.marker.id:
                         # in map frame
@@ -367,8 +374,9 @@ class riccati_estimation():
         self.timeStamp = TwistMsg.header.stamp
 
         linear_velocity = np.array([TwistMsg.twist.twist.linear.x, TwistMsg.twist.twist.linear.y, TwistMsg.twist.twist.linear.z])
+        linear_velocity = np.dot(self.ChangeVelocityRotMatrix, linear_velocity)    
         angular_velocity = np.array([TwistMsg.twist.twist.angular.x, TwistMsg.twist.twist.angular.y, TwistMsg.twist.twist.angular.z])
-        # angular_velocity = np.array([0, 0, 0])
+        angular_velocity = np.dot(self.ChangeVelocityRotMatrix, angular_velocity)  
         print("linear_velocity ", linear_velocity)
         print("angular_velocity ", angular_velocity)
 

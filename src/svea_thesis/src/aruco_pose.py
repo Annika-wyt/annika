@@ -24,13 +24,16 @@ from svea_msgs.msg import Aruco, ArucoArray
 
 class aruco_pose:
 
+    # 59.350775, 18.068076
+    # 59°21'02.8"N 18°04'05.1"E
+
     def __init__(self):
         # Initalize the node 
         rospy.init_node('aruco_pose')
 
         # Get parameters from launch file
         self.aruco_pose_topic = rospy.get_param("~aruco_pose_topic", "/aruco/detection")
-        self.aruco_id = rospy.get_param("~aruco_id", [0,1,2,3,4,5])
+        self.aruco_id = rospy.get_param("~aruco_id", [1])
 
         # Subscriber
         rospy.Subscriber(self.aruco_pose_topic, ArucoArray, self.aruco_callback, queue_size=1)
@@ -136,7 +139,7 @@ class aruco_pose:
         
         elif len(self.UpdatePoseList) == 1:
             self.publish_pose(Point(*self.UpdatePoseList[0][0]), Quaternion(*quaternion_from_euler(*self.UpdatePoseList[0][1])), self.UpdatePoseList[0][2])
-            self.broadcast_pose(Point(*self.UpdatePoseList[0][0]), Quaternion(*quaternion_from_euler(*self.UpdatePoseList[0][1])), self.UpdatePoseList[0][2])
+            # self.broadcast_pose(Point(*self.UpdatePoseList[0][0]), Quaternion(*quaternion_from_euler(*self.UpdatePoseList[0][1])), self.UpdatePoseList[0][2])
         self.UpdatePoseList = []
 
     def broadcast_pose(self, translation=None, quaternion=None, time=None):
@@ -172,6 +175,12 @@ class aruco_pose:
                            0.0, 0.0, 0.0, 0.0, 0.0, self.ang_cov]
         msg.pose.covariance = self.cov_matrix
         self.setEKFPose.publish(msg)
+        msgTransform = TransformStamped()
+        msgTransform.header = msg.header
+        msgTransform.child_frame_id = "YouShouldBeHere"
+        msgTransform.transform.translation = translation
+        msgTransform.transform.rotation = quaternion
+        self.br.sendTransform(msgTransform)
         rospy.loginfo(f"PUBLISH POSE FROM ARUCO_POSE")
         
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import psutil
+import os
 
 import numpy as np
 import cv2
@@ -70,6 +72,7 @@ class aruco_detect:
         ts.registerCallback(self.callback)
         rospy.loginfo(self.SUB_IMAGE)
 
+
     def GetStaticTransform(self):
         try: 
             self.transform_aruco_base = self.buffer.lookup_transform(self.base_link, 'camera', rospy.Time(), rospy.Duration(0.5))
@@ -120,23 +123,14 @@ class aruco_detect:
                     arucoPose.pose.position = Point(*translation)
                     arucoPose.pose.orientation = Quaternion(*rotation)
                     position = tf2_geometry_msgs.do_transform_pose(arucoPose, self.transform_aruco_base) 
-                    markerCorners = aruco_corner[0]
-                    center_x, center_y = np.mean(markerCorners, axis=0)
-                    fx, fy = camera_info.K[0], camera_info.K[4]
-                    cx, cy = camera_info.K[2], camera_info.K[5]
-
-                    # fx, fy = camera_info.P[0], camera_info.P[5]
-                    # cx, cy = camera_info.P[2], camera_info.P[6]
-                    camera_x = (center_x - cx) / fx
-                    camera_y = (center_y - cy) / fy
-
-                    undistorted_points = cv2.undistortPoints(np.array([[camera_x, camera_y]]), np.array(camera_info.K).reshape((3, 3)), np.array(camera_info.D).reshape((1, 5)), R=np.array(camera_info.R).reshape((3, 3)), P=np.array(camera_info.P).reshape((3, 4)))
+                    
+                    # undistorted_points = cv2.undistortPoints(np.array([[camera_x, camera_y]]), np.array(camera_info.K).reshape((3, 3)), np.array(camera_info.D).reshape((1, 5)), R=np.array(camera_info.R).reshape((3, 3)), P=np.array(camera_info.P).reshape((3, 4)))
                     
 
                     t.header = image.header
-                    t.header.frame_id = self.base_link
-                    t.transform.translation = position.pose.position
-                    t.transform.rotation =    position.pose.orientation
+                    t.header.frame_id = "camera" #self.base_link
+                    t.transform.translation = Point(*translation) #position.pose.position
+                    t.transform.rotation =    Quaternion(*rotation) #position.pose.orientation
                 except Exception as e:
                     rospy.logerr(f"{e}")
 
@@ -149,6 +143,16 @@ class aruco_detect:
                 continue
 
             self.br.sendTransform(t)
+            markerCorners = aruco_corner[0]
+            center_x, center_y = np.mean(markerCorners, axis=0)
+            fx, fy = camera_info.K[0], camera_info.K[4]
+            cx, cy = camera_info.K[2], camera_info.K[5]
+
+            # fx, fy = camera_info.P[0], camera_info.P[5]
+            # cx, cy = camera_info.P[2], camera_info.P[6]s
+            camera_x = (center_x - cx) / fx
+            camera_y = (center_y - cy) / fy
+
 
             #get the 2D image coordinate of the aruco marker
             aruco_msg = Aruco()
@@ -200,5 +204,8 @@ if __name__ == '__main__':
     ##  Global resources  ##
     bridge = CvBridge()
 
+    current_pid = os.getpid()
+    process = psutil.Process(current_pid)
+    process.cpu_affinity([1])
     ##  Start node  ##
     aruco_detect().run()

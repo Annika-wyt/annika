@@ -1,4 +1,6 @@
 #! /usr/bin/env python3
+import psutil
+import os
 
 import rospy
 import numpy as np
@@ -44,7 +46,7 @@ class riccati_estimation():
         ################# Variables ##################
         self.timeStamp = None
         self.startTime = None
-        self.svea_frame_name = "svea5"
+        self.svea_frame_name = "base_link"
         self.seq = 0
         self.t = 0
         
@@ -72,10 +74,10 @@ class riccati_estimation():
 
         ##############################################
         ################# Parameters #################
-        k = rospy.get_param("~k", 100)
+        k = rospy.get_param("~k", 150)
         q = rospy.get_param("~q", 10)
-        v1 = rospy.get_param("~v1", 0.1)
-        v2 = rospy.get_param("~v2", 1)
+        v1 = rospy.get_param("~v1", 1)
+        v2 = rospy.get_param("~v2", 10)
 
         self.estpose = np.array([1.7, -0.5, 0], dtype=np.float64)
         self.estori = np.array([0, 0, 0, -1], dtype=np.float64) #w, x, y, z #base_link
@@ -86,7 +88,7 @@ class riccati_estimation():
         ##############################################
         self.riccati_obj = riccati_observer(
         stepsize                = 0.1,
-        tol                     = 1e-2 * 2, #1e-2 * 3,
+        tol                     = 1e-2 * 1, #1e-2 * 3,
         which_eq                = 0,
         p_hat                   = self.estpose, # sth from state or just input from lanuch file,
         Lambda_bar_0            = self.estori, #np.hstack((self.estori[-1], self.estori[0:-1])), # sth from state or just input from lanuch file,  # quaternion: w, x, y, z
@@ -99,14 +101,14 @@ class riccati_estimation():
         ##############################################
         ################# Subscriber #################
 
-        # Twist = Subscriber('/actuation_twist', TwistWithCovarianceStamped)
-        Twist = Subscriber('/odometry/filtered', Odometry)
+        Twist = Subscriber('/actuation_twist', TwistWithCovarianceStamped)
+        # Twist = Subscriber('/odometry/filtered', Odometry)
         
-        Landmark = Subscriber('/aruco/detection', ArucoArray)
+        Landmark = Subscriber('/aruco/detection/more', ArucoArray)
         LandmarkGroudtruth = Subscriber('/aruco/detection/Groundtruth', ArucoArray)
 
         if WITH_LANDMARK:
-            sync = ApproximateTimeSynchronizer([Landmark, LandmarkGroudtruth], queue_size=1, slop=2) #maybe????, but should only apply to cases with changing velocity
+            sync = ApproximateTimeSynchronizer([Landmark, LandmarkGroudtruth], queue_size=1, slop=1) #maybe????, but should only apply to cases with changing velocity
             sync.registerCallback(self.TwistAndLandmarkCallback)
         else:
             sync = ApproximateTimeSynchronizer([Twist], queue_size=1, slop=0.2)
@@ -135,7 +137,7 @@ class riccati_estimation():
         self.cameraSub.unregister()
 
     def changeFrame(self, timeStamp):
-        print("CheckFrame")
+        # print("CheckFrame")
         pose = np.matmul(self.riccati_obj.rodrigues_formula(self.estori), self.estpose) #baselink in map frame
         msg2 = TransformStamped()
         msg2.header.seq = self.seq
@@ -151,9 +153,9 @@ class riccati_estimation():
         msg2.transform.rotation.y = self.estori[2]
         msg2.transform.rotation.z = self.estori[3]
         self.sbr.sendTransform(msg2)
-        print(msg2)
+        # print(msg2)
         transformed_direction = tf2_geometry_msgs.do_transform_pose(self.camera_to_base_transform, msg2) 
-        print("transformed_direction", transformed_direction)
+        # print("transformed_direction", transformed_direction)
         msg = TransformStamped()
         msg.header.seq = self.seq
         msg.header.stamp = timeStamp #+ rospy.Duration(dt)
@@ -168,12 +170,12 @@ class riccati_estimation():
         self.estpose = pose
         self.riccati_obj.set_init(self.estori, self.estpose)
         self.sbr.sendTransform(msg)
-        print(msg)
+        # print(msg)
         self.seq += 1
         self.pubinit = True
 
     def pub_EstPose(self, timeStamp, dt):
-            print("pub_EstPose")
+            # print("pub_EstPose")
             pose = np.matmul(self.riccati_obj.rodrigues_formula(self.estori), self.estpose) #baselink in map frame
 
             msg2 = TransformStamped()
@@ -191,7 +193,7 @@ class riccati_estimation():
             msg2.transform.rotation.z = self.estori[3]
 
             self.sbr.sendTransform(msg2)
-            print(msg2)
+            # print(msg2)
             self.debugTopic.publish(msg2)
             transBaseCam = self.buffer.lookup_transform("camera", self.svea_frame_name, rospy.Time(), rospy.Duration(2)) #frame id = svea5, child = camera 
             transBaseCamPose = PoseStamped()
@@ -208,11 +210,10 @@ class riccati_estimation():
             msg.transform.translation = transformed_direction.pose.position
             msg.transform.rotation = transformed_direction.pose.orientation
 
-            print(msg)
+            # print(msg)
             self.sbr.sendTransform(msg)
 
             self.seq += 1
-            
 
             visualarr = VMA()
             visualmarker = VM()
@@ -310,6 +311,11 @@ class riccati_estimation():
                 landmark.append(temp)
                 arucosUsed.arucos.append(aruco)
                 arucoId.append(aruco.marker.id)
+                # print(aruco.marker.id)
+                # print("2d", temp)
+                # b = np.array([aruco.marker.pose.pose.position.x, aruco.marker.pose.pose.position.y, aruco.marker.pose.pose.position.z])
+                # b /= np.linalg.norm(b)
+                # print("3d", b)
                 for ArucoGroundtruth in LandmarkGroudtruthMsg.arucos:
                     if ArucoGroundtruth.marker.id == aruco.marker.id:
                         # in map frame
@@ -321,7 +327,7 @@ class riccati_estimation():
 
             self.visualizeAruco(arucosUsed, landmark)
             self.visualDirection(landmark, LandmarkMsg, arucoId)
-
+            
             solt, dt, soly, errMsg = self.riccati_obj.step_simulation()
             dtMsg = Float32()
             dtMsg.data = dt
@@ -403,4 +409,7 @@ class riccati_estimation():
         rospy.spin()
 
 if __name__ == '__main__':
+    current_pid = os.getpid()
+    process = psutil.Process(current_pid)
+    process.cpu_affinity([2])
     riccati_estimation().run()

@@ -22,6 +22,7 @@ from visualization_msgs.msg import Marker as VM
 from visualization_msgs.msg import MarkerArray as VMA
 
 WITH_LANDMARK = True
+MAP_FRAME = "map_ref"
 
 ERROR_MSG = {-1:"No error",
              0: "Not enough source points",
@@ -157,7 +158,7 @@ class riccati_estimation():
         msg2 = TransformStamped()
         msg2.header.seq = self.seq
         msg2.header.stamp = timeStamp #+ rospy.Duration(dt)
-        msg2.header.frame_id = 'map'
+        msg2.header.frame_id = MAP_FRAME
         msg2.child_frame_id = 'base_link_est'
 
         msg2.transform.translation.x = pose[0]
@@ -173,7 +174,7 @@ class riccati_estimation():
         msg = TransformStamped()
         msg.header.seq = self.seq
         msg.header.stamp = timeStamp #+ rospy.Duration(dt)
-        msg.header.frame_id = 'map'
+        msg.header.frame_id = MAP_FRAME
         msg.child_frame_id = 'camera_est'
 
         msg.transform.translation = transformed_direction.pose.position
@@ -196,7 +197,7 @@ class riccati_estimation():
             msg2 = TransformStamped()
             msg2.header.seq = self.seq
             msg2.header.stamp = timeStamp #+ rospy.Duration(dt)
-            msg2.header.frame_id = 'map'
+            msg2.header.frame_id = MAP_FRAME
             msg2.child_frame_id = 'camera_est'
 
             msg2.transform.translation.x = pose[0]
@@ -215,7 +216,7 @@ class riccati_estimation():
             msg = TransformStamped()
             msg.header.seq = self.seq
             msg.header.stamp = timeStamp #+ rospy.Duration(dt)
-            msg.header.frame_id = 'map'
+            msg.header.frame_id = MAP_FRAME
             msg.child_frame_id = 'base_link_est'
 
             msg.transform.translation = transformed_direction.pose.position
@@ -228,7 +229,7 @@ class riccati_estimation():
             visualarr = VMA()
             visualmarker = VM()
             visualmarker.header.stamp = timeStamp
-            visualmarker.header.frame_id = "map"
+            visualmarker.header.frame_id = MAP_FRAME
             visualmarker.ns = "sveapose"
             visualmarker.id = 0
             visualmarker.type = VM.CUBE

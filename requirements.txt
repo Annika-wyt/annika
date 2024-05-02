@@ -12,3 +12,4 @@ pyserial
 pyubx2
 geopy
 psutil
+nats-py==2.2.0

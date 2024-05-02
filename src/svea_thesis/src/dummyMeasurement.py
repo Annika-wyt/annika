@@ -58,7 +58,7 @@ class dummyMeasurement():
         self.startTime = None
         self.current_time = 0
         
-        self.motion = "static" #"static", "linear", "angular", "both"
+        self.motion = "linear" #"static", "linear", "angular", "both"
         self.stepCounter = 0 
 
 
@@ -84,10 +84,10 @@ class dummyMeasurement():
         #                           [0.0,  1.0 ,  0.08],
         #                           [-1.0, 0.0 ,  0.08],
         #                           [1.0,  0.0 ,  0.08]])
-        landmark_pose = np.array([[-0.3982733459472656, -0.3341578674316406, 0.10122600555419922], 
-                                  [-1.021384765625, -1.3663646240234375, 0.08791256713867188],
-                                  [-1.590159423828125, -0.7866044311523438, 0.0821039810180664],
-                                  [-0.7896022338867188, 0.3022557373046875, 0.07362690734863281]])
+        landmark_pose = np.array([[1.0  , 0.7 , 0.08],
+                                [-1.0 , 0.9 , 0.08],
+                                [0.6  , 1.1 , 0.08],
+                                [-0.6 , 1.3 , 0.08]])
         
         
         self.landmarkPose = []
@@ -146,7 +146,7 @@ class dummyMeasurement():
             print(e)
     def run(self):
         while not rospy.is_shutdown():
-            # self.pubCameraInfo()
+            self.pubCameraInfo()
             for i in range(1):
                 if self.startTime == None:
                     self.startTime = rospy.Time.now()
@@ -155,10 +155,10 @@ class dummyMeasurement():
                 else:
                     self.time = rospy.Time.now()
                     self.current_time = (self.time - self.startTime).to_sec()
-                # if self.motion != "bag":
-                    # self.publishBaselink(None)
-                    # self.publishTwist(None, None)
-                    # rospy.sleep(0.001)
+                if self.motion != "bag":
+                    self.publishBaselink(None)
+                    self.publishTwist(None, None)
+                    rospy.sleep(0.001)
             self.publishAruco()
             self.seq += 1
 
@@ -229,8 +229,8 @@ class dummyMeasurement():
             msg.transform.rotation = Quaternion(*rotation) #x, y, z, w
         elif self.motion == "linear":
             # msg.transform.translation = Vector3(*[-1/0.2*np.cos(0.2*self.current_time) + 1/0.2 - 2, -2, 0])
-            msg.transform.translation = Vector3(*[0.2*self.current_time-2, -2, 0])
-            rotation = np.array([0, 0, 0, 0.5])
+            msg.transform.translation = Vector3(*[0, 0.2*self.current_time-3, 0])
+            rotation = np.array([0, 0, 1.0, 1.0])
 
             # msg.transform.translation = Vector3(*[0, -1/0.4*np.cos(0.4*self.current_time) + 1/0.4,0])
             # rotation = np.array([0, 0, 0.5, 0.5])

@@ -30,6 +30,15 @@
     <include file="$(find svea_thesis)/launch/aruco_transform.launch"/>
     
     <node name="MocapAruco" pkg="svea_thesis" type="MocapAruco.py" output="screen"/>
+
+    <node name="nats_connector" pkg="nats_ros_connector" type="nats_connector.py" output="screen">
+        <remap from="svea5/aruco/detection" to="/aruco/detection"/>
+        <rosparam>
+        host: sml-wan.asuscomm.com
+        publishers:
+          - svea5/aruco/detection
+        </rosparam>
+    </node>
     <!-- <node name="aruco_pose" pkg="svea_sensors" type="aruco_pose.py" output="screen"/> -->
     <!-- <node name="p3p_process_data" pkg="svea_sensors" type="p3p_process_data.py" output="screen"/> -->
 </launch>

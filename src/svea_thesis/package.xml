@@ -49,6 +49,8 @@
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>realsense2_camera</depend>
@@ -59,7 +61,8 @@
   <depend>rosserial_python</depend>
   <depend>svea_msgs</depend>
   <depend>mavros_msgs</depend>
-  <depend>aruco_msgs</depend>
+  <depend>aruco_msgs</depend> 
+  <depend>std_msgs</depend> 
   <depend>rtcm_msgs</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>

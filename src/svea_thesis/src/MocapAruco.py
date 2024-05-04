@@ -8,7 +8,7 @@ import rospy
 import tf2_ros
 import tf_conversions
 from geometry_msgs.msg import TransformStamped, Point, Quaternion, Vector3, PoseStamped
-from svea_msgs.msg import Aruco, ArucoArray
+from svea_thesis.msg import Aruco, ArucoArray
 import tf2_geometry_msgs
 from message_filters import Subscriber, ApproximateTimeSynchronizer
 

@@ -15,7 +15,7 @@ from aruco_msgs.msg import Marker, MarkerArray
 from visualization_msgs.msg import Marker as VM
 from geometry_msgs.msg import TransformStamped, Point, Quaternion, Vector3, PoseStamped, Vector3Stamped
 from cv_bridge import CvBridge
-from svea_msgs.msg import Aruco, ArucoArray
+from svea_thesis.msg import Aruco, ArucoArray
 from std_msgs.msg import ColorRGBA
 import tf2_geometry_msgs
 
@@ -40,7 +40,7 @@ class aruco_detect:
         
         self.debug = True
         
-        self.base_link = "svea5"
+        self.base_link = "base_link"
 
         ## Aruco
         self.aruco_size = float(self.ARUCO_SIZE)

@@ -3,6 +3,7 @@ import rospy
 import tf2_ros
 
 from pyproj import Proj
+import numpy as np
 
 from geometry_msgs.msg import TransformStamped, Vector3, Quaternion
 from sensor_msgs.msg import NavSatFix
@@ -20,7 +21,6 @@ class reference_gps_frame:
         self.reference_aruco = rospy.get_param("~reference_aruco", [59.350775, 18.068076]) #ITRL
         self.reference_map = rospy.get_param("~reference_map", [59.350775,18.068094]) #
 
-
         # Publisher
         self.reference_gps_publisher = rospy.Publisher('/reference_points', NavSatFix, queue_size=10)
 
@@ -29,7 +29,7 @@ class reference_gps_frame:
         self.static_br = tf2_ros.StaticTransformBroadcaster()
 
         # Variables
-        self.rate = rospy.Rate(10)
+        self.rate = rospy.Rate(40)
         self.seq = 0
 
     def PublishReferenceGpsFrame(self, point, name):
@@ -37,10 +37,14 @@ class reference_gps_frame:
         utm = projection(point[1], point[0])
         FixedGpsFrame = TransformStamped()
         FixedGpsFrame.header.stamp = rospy.Time.now()
-        FixedGpsFrame.header.frame_id = "utm"
+        # FixedGpsFrame.header.frame_id = "utm"
+        # FixedGpsFrame.transform.translation = Vector3(*[utm[0], utm[1], 0.0])
+        FixedGpsFrame.header.frame_id = "map"
         FixedGpsFrame.child_frame_id = name
-        FixedGpsFrame.transform.translation = Vector3(*[utm[0], utm[1], 0.0])
-        FixedGpsFrame.transform.rotation = Quaternion(*[0.0, 0.0, 0.0, 1.0])
+        FixedGpsFrame.transform.translation = Vector3(*[0.0, 0.0, 0.0])
+        q = [0.0, 0.0, 1.0, 1.0]
+        q /= np.linalg.norm(q)
+        FixedGpsFrame.transform.rotation = Quaternion(*q)
         self.static_br.sendTransform(FixedGpsFrame)
 
         reference_msg = NavSatFix()
@@ -55,9 +59,9 @@ class reference_gps_frame:
 
     def run(self):
         while not rospy.is_shutdown():
-            self.PublishReferenceGpsFrame(self.reference_aruco, "aruco1")
+            # self.PublishReferenceGpsFrame(self.reference_aruco, "aruco1")
             self.PublishReferenceGpsFrame(self.reference_map, "map_ref")
-            self.rate.sleep()
+            rospy.sleep(0.025)
 
 if __name__ == '__main__':
     reference_gps_frame().run()

@@ -11,7 +11,7 @@ from message_filters import Subscriber, ApproximateTimeSynchronizer
 from riccati_observer import riccati_observer
 
 from std_msgs.msg import Float32, ColorRGBA
-from svea_msgs.msg import Aruco, ArucoArray, riccati_setup
+from svea_thesis.msg import Aruco, ArucoArray, riccati_setup
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import TwistWithCovarianceStamped, TransformStamped, Point, Quaternion, Vector3, PoseStamped, Vector3Stamped, TwistStamped, PoseArray, Pose
 from sensor_msgs.msg import CameraInfo
@@ -82,11 +82,11 @@ class riccati_estimation():
         ################# Parameters #################
         k = rospy.get_param("~k", 150)
         q = rospy.get_param("~q", 10)
-        v1 = rospy.get_param("~v1", 1)
+        v1 = rospy.get_param("~v1", 0.1)
         v2 = rospy.get_param("~v2", 10)
 
         self.estpose = np.array([1.7, -0.5, 0], dtype=np.float64)
-        self.estori = np.array([0, 0, 0, -1], dtype=np.float64) #w, x, y, z #base_link
+        self.estori = np.array([1   , 0, 0, 1], dtype=np.float64) #w, x, y, z #base_link
         self.initpose = self.estpose
         self.estori /= np.linalg.norm(self.estori)
         self.initori = self.estori #w, x, y, z
@@ -300,6 +300,7 @@ class riccati_estimation():
         self.RiccatiDirPublisher.publish(Pmsg)
 
     def TwistAndLandmarkCallback(self, TwistMsg, LandmarkMsg, LandmarkGroudtruthMsg):
+        print("HI")
         # if self.stop <1:
         if self.camera_to_base_transform != None and self.CameraInfo != None and self.pubinit:
             if self.startTime == None:

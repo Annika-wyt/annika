@@ -12,7 +12,6 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   geometry_msgs
   message_generation
-  aruco_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -56,8 +55,6 @@ find_package(catkin REQUIRED COMPONENTS
    lli_emergency.msg
    VehicleState.msg
    riccati_setup.msg
-   Aruco.msg
-   ArucoArray.msg
  )
 
 ## Generate services in the 'srv' folder
@@ -80,7 +77,6 @@ find_package(catkin REQUIRED COMPONENTS
    std_msgs
    geometry_msgs
    nav_msgs
-   aruco_msgs
  )
 
 ################################################
@@ -115,7 +111,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES SVEA_msgs
-  CATKIN_DEPENDS message_runtime std_msgs nav_msgs geometry_msgs aruco_msgs
+  CATKIN_DEPENDS message_runtime std_msgs nav_msgs geometry_msgs 
 #  DEPENDS system_lib
 )
 

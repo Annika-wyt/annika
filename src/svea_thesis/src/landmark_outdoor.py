@@ -5,19 +5,22 @@ import tf2_ros
 import numpy as np
 
 from geometry_msgs.msg import TransformStamped, Vector3, Quaternion, Point
-from svea_msgs.msg import Aruco, ArucoArray
+from svea_thesis.msg import Aruco, ArucoArray
 
 class landmark_outdoor:
     def __init__(self):
         rospy.init_node('landmark_outdoor')
         self.landmark = {
-            11 : [1.0  , 0.7 , 0.08],
-            12 : [-1.0 , 0.9 , 0.08],
-            14 : [0.6  , 1.1 , 0.08],
-            15 : [-0.6 , 1.3 , 0.08]
+            10 : [-0.625 , 0.75 , 0.08],
+            11 : [0.625 , 1.12 , 0.08],
+            12 : [-0.625 , 1.45 , 0.08],
+            13 : [0.625 , 1.84 , 0.08],
+            14 : [-0.625 , 2.07 , 0.08],
+            15 : [0.625 , 2.44 , 0.08]
         }
 
         self.MapArucoPub = rospy.Publisher('/aruco/detection/Groundtruth', ArucoArray, queue_size=1)    
+        self.map_frame = rospy.get_param("~map_frame", "map") #
 
         self.buffer = tf2_ros.Buffer(rospy.Duration(10))
         self.static_br = tf2_ros.StaticTransformBroadcaster()
@@ -31,11 +34,11 @@ class landmark_outdoor:
     def publishLandmark(self):
         msg = TransformStamped()
         arucoarray = ArucoArray()
-
+        arucoarray.header.stamp = rospy.Time.now()
+        arucoarray.header.seq = self.seq
+        arucoarray.header.frame_id = self.map_frame
         for key, items in self.landmark.items():
-            msg.header.stamp = rospy.Time.now()
-            msg.header.seq = self.seq
-            msg.header.frame_id = "map_ref"
+            msg.header = arucoarray.header
             msg.child_frame_id = "aruco" + str(key)
             msg.transform.translation = Vector3(*items)
             msg.transform.rotation = Quaternion(*[0, 0, 0, 1])

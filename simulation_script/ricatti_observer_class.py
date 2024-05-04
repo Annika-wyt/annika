@@ -172,7 +172,6 @@ class riccati_observer():
         '''
         norm = (input_p - input_z)/np.linalg.norm(input_p - input_z)
         dir = np.matmul(np.transpose(input_rot), norm)
-        print("dir ", dir)
 
         # hmm: removed the following part
         # if with_noise:
@@ -222,13 +221,16 @@ class riccati_observer():
 
     def GetlinVelocity(self, t):
         # return np.transpose(np.array([[0, 0, 0]]))
-        return np.transpose(np.array([[0.2, 0, 0]]))
+        # return np.transpose(np.array([[0.2, 0, 0]]))
+        return np.transpose(np.array([[-np.sin(0.4*t), np.cos(0.4*t), 0]]))
     def GetAngVelocity(self, t):
-        return np.transpose(np.array([[0, 0, 0]]))
         # return np.transpose(np.array([[0, 0, 0]]))
+        # return np.transpose(np.array([[0, 0, 0]]))
+        return np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]]))
     def GetPose(self, t):
         # return np.transpose(np.array([[3.33, 2.5, 4.5]]))
-        return np.transpose(np.array([[-4.8988611222, 2.5, 4.5]]))
+        # return np.transpose(np.array([[-4.8988611222, 2.5, 4.5]]))
+        return np.transpose(np.array([[2.5 + 2.5*np.cos(0.4*t), 2.5*np.sin(0.4*t), 10]]))
     
     def visual_plot(self, figsize = (20, 4), bound_y=True):
         '''
@@ -525,9 +527,6 @@ class riccati_observer():
                 # input_omega = np.transpose(np.array([[0.1*np.sin(t), 0.4*np.cos(2*t), 0.6*t]]))
         ########### Measurements ###########
         ####################################
-        print("linear velocity, ", input_v)
-        print("angular velocity, ", input_omega)
-        print("pose, ", input_p)
         if quaternion:
             ####################################
             ############ Quaternion ############
@@ -551,13 +550,9 @@ class riccati_observer():
         input_P = input_P_flat.reshape((6,6))
 
         input_A = self.function_A(input_omega)
-        print("input_A \n", input_A)
-        print("===========================")
         if not input_z.any() == None:
             input_C = self.function_C(input_R, input_R_hat, input_p, input_z, with_noise, num_landmarks)
         ####################################
-        print("input_C \n", input_C)
-        print("===========================")
 
         ####################################
         ############# Observer #############
@@ -565,18 +560,10 @@ class riccati_observer():
         # output_omega_hat_p_bar_hat_dot[:2,:] = 0.0
         ############# Observer #############
         ####################################
-        print("output_omega_hat_p_bar_hat_dot \n", output_omega_hat_p_bar_hat_dot)
-        print("===========================")
         if not input_z.any() == None:
             output_P_dot = np.matmul(input_A, input_P) + np.matmul(input_P, np.transpose(input_A)) - np.matmul(input_P, np.matmul(np.transpose(input_C), np.matmul(input_Q, np.matmul(input_C, input_P)))) + input_V
-            # print("CP", np.matmul(input_C, input_P))
-            # print("QCP", np.matmul(input_Q, np.matmul(input_C, input_P)))
-            # print("CQCP", np.matmul(np.transpose(input_C), np.matmul(input_Q, np.matmul(input_C, input_P))))
-            # print("PCQCP", np.matmul(input_P, np.matmul(np.transpose(input_C), np.matmul(input_Q, np.matmul(input_C, input_P)))))
         else:
             output_P_dot = np.matmul(input_A, input_P) + np.matmul(input_P, np.transpose(input_A)) + input_V
-        print("output_P_dot \n", output_P_dot)
-        print("===========================")
         p_bar_hat_dot = output_omega_hat_p_bar_hat_dot[3:]
 
         if quaternion:
@@ -595,8 +582,6 @@ class riccati_observer():
                                     [input_omega[1], -input_omega[2], 0, input_omega[0]],
                                     [input_omega[2], input_omega[1], -input_omega[0], 0]])
             output_qua_flat = 0.5*np.matmul(omega_4x4, qua_flat)
-            print("np.concatenate((output_qua_flat, output_qua_hat_flat, p_bar_hat_dot.flatten(), output_P_dot.flatten())) \n", np.concatenate((output_qua_flat, output_qua_hat_flat, p_bar_hat_dot.flatten(), output_P_dot.flatten())))
-            print("===========================")
             return np.concatenate((output_qua_flat, output_qua_hat_flat, p_bar_hat_dot.flatten(), output_P_dot.flatten()))
             ########### Quaternion ############
             ####################################
@@ -716,9 +701,6 @@ class riccati_observer():
 
             ####################### Solver #######################
             ######################################################
-        print("t", self.solt[-1])
-        print("soly qua", self.soly[-1][4:8])
-        print("soly pos", self.soly[-1][8:11])
         return (self.solt[-1], self.dt, self.soly[-1])
 
     def full_simulation(self):
@@ -774,8 +756,8 @@ class riccati_observer():
                         else:
                             self.dt = abs(self.image_time[min(self.i, len(self.image_time)-1)] - next_time)
                     else:
-                        self.dt = self.stepsize #new_dt
-                    self.current_time = systemtime.time() - time_zero #next_time
+                        self.dt = new_dt
+                    self.current_time = next_time
                 else:
                     self.dt = new_dt
             else:

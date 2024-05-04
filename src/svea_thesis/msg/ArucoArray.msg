@@ -1,2 +1,2 @@
 Header header
-svea_msgs/Aruco[] arucos
+svea_thesis/Aruco[] arucos

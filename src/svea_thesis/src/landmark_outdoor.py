@@ -11,12 +11,12 @@ class landmark_outdoor:
     def __init__(self):
         rospy.init_node('landmark_outdoor')
         self.landmark = {
-            10 : [-0.625 , 0.75 , 0.08],
-            11 : [0.625 , 1.12 , 0.08],
-            12 : [-0.625 , 1.45 , 0.08],
-            13 : [0.625 , 1.84 , 0.08],
-            14 : [-0.625 , 2.07 , 0.08],
-            15 : [0.625 , 2.44 , 0.08]
+            10 : [ -0.625 , 0.75 , 0.08 ],
+            11 : [ 0.625 , 1.1 , 0.08 ],
+            12 : [ -0.625 , 1.45 , 0.08 ],
+            13 : [ 0.625 , 1.8 , 0.08 ],
+            14 : [ -0.625 , 2.15 , 0.08 ],
+            15 : [ 0.625 , 2.5 , 0.08 ]
         }
 
         self.MapArucoPub = rospy.Publisher('/aruco/detection/Groundtruth', ArucoArray, queue_size=1)    

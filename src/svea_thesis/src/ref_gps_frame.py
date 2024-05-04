@@ -20,6 +20,7 @@ class reference_gps_frame:
         # Reference GPS latitude, Longitude
         self.reference_aruco = rospy.get_param("~reference_aruco", [59.350775, 18.068076]) #ITRL
         self.reference_map = rospy.get_param("~reference_map", [59.350775,18.068094]) #
+        self.is_indoors = rospy.get_param("~is_indoors", True)
 
         # Publisher
         self.reference_gps_publisher = rospy.Publisher('/reference_points', NavSatFix, queue_size=10)
@@ -37,14 +38,17 @@ class reference_gps_frame:
         utm = projection(point[1], point[0])
         FixedGpsFrame = TransformStamped()
         FixedGpsFrame.header.stamp = rospy.Time.now()
-        # FixedGpsFrame.header.frame_id = "utm"
-        # FixedGpsFrame.transform.translation = Vector3(*[utm[0], utm[1], 0.0])
-        FixedGpsFrame.header.frame_id = "map"
-        FixedGpsFrame.child_frame_id = name
-        FixedGpsFrame.transform.translation = Vector3(*[0.0, 0.0, 0.0])
-        q = [0.0, 0.0, 1.0, 1.0]
-        q /= np.linalg.norm(q)
-        FixedGpsFrame.transform.rotation = Quaternion(*q)
+        if self.is_indoors:
+            FixedGpsFrame.header.frame_id = "map"
+            FixedGpsFrame.child_frame_id = name
+            q = [0.0, 0.0, 1.0, 1.0]
+            q /= np.linalg.norm(q)
+            FixedGpsFrame.transform.translation = Vector3(*[0.0, 0.0, 0.0])
+            FixedGpsFrame.transform.rotation = Quaternion(*q)
+        else:
+            FixedGpsFrame.header.frame_id = "utm"
+            FixedGpsFrame.transform.translation = Vector3(*[utm[0], utm[1], 0.0])
+            FixedGpsFrame.transform.rotation = Quaternion(*[0.0, 0.0, 0.0, 1.0])
         self.static_br.sendTransform(FixedGpsFrame)
 
         reference_msg = NavSatFix()

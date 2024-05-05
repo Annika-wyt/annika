@@ -13,8 +13,9 @@
     <arg name="lon"                     default="18.068094"/>
     <arg name="lli_port"                default="/dev/ttyACM0"/>
     <arg name="lli_baud"                default="250000"/>
-    <arg name="image_width"             default="640"/>
-    <arg name="image_height"            default="480"/>
+    <arg name="camera_info_file"        default="logitech_web_camera_1024_576.yaml"/>
+    <arg name="image_width"             default="1024"/>
+    <arg name="image_height"            default="576"/>
     <arg name="make_rosbag"             default="false"/>
     
     <!-- Nodes -->
@@ -35,6 +36,7 @@
     <!-- check the transform from the svea_sensors/transforms.launch -->
 
     <include file="$(find svea_thesis)/launch/camera.launch">
+        <arg name="camera_info_file"        value="$(arg camera_info_file)"/>
         <arg name="image_width"       value="$(arg image_width)"/>
         <arg name="image_height"      value="$(arg image_height)"/>
     </include>

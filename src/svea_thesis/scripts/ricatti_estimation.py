@@ -300,7 +300,6 @@ class riccati_estimation():
         self.RiccatiDirPublisher.publish(Pmsg)
 
     def TwistAndLandmarkCallback(self, TwistMsg, LandmarkMsg, LandmarkGroudtruthMsg):
-        print("HI")
         # if self.stop <1:
         if self.camera_to_base_transform != None and self.CameraInfo != None and self.pubinit:
             if self.startTime == None:

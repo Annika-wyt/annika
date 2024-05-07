@@ -6,11 +6,11 @@
     <arg name="aruco_dict"              default="DICT_4X4_250"/>
     <arg name="aruco_size"              default="0.1"/>
     <arg name="aruco_tf_name"           default="arucoCamera"/>
-    <arg name="map_frame"               default="map_ref"/>
+    <arg name="map_frame"               default="map"/>
     <arg name="start_localization"      default="false"/>
-    <arg name="is_indoors"              default="true"/>
-    <arg name="lat"                     default="59.350775"/>
-    <arg name="lon"                     default="18.068094"/>
+    <arg name="is_indoors"              default="false"/>
+    <arg name="lat"                     default="59.4039043"/>
+    <arg name="lon"                     default="17.9518479"/>
     <arg name="lli_port"                default="/dev/ttyACM0"/>
     <arg name="lli_baud"                default="250000"/>
     <arg name="camera_info_file"        default="logitech_web_camera_1024_576.yaml"/>
@@ -19,27 +19,27 @@
     <arg name="make_rosbag"             default="false"/>
     
     <!-- Nodes -->
-    <group unless="$(arg start_localization)">
-        <node pkg="rosserial_python" type="serial_node.py" name="serial_node">
-            <param name="port" value="$(arg lli_port)"/>
-            <param name="baud" value="$(arg lli_baud)"/>
-        </node>
-        <include file="$(find svea_sensors)/launch/sensors_launch/controller.launch"></include>
-    </group>
+    <!-- <group unless="$(arg start_localization)"> -->
+        <!-- <node pkg="rosserial_python" type="serial_node.py" name="serial_node"> -->
+            <!-- <param name="port" value="$(arg lli_port)"/> -->
+            <!-- <param name="baud" value="$(arg lli_baud)"/> -->
+        <!-- </node> -->
+        <!-- <include file="$(find svea_sensors)/launch/sensors_launch/controller.launch"></include> -->
+    <!-- </group> -->
     <!-- <include file="$(find svea_sensors)/launch/localize.launch"></include> -->
     
-    <node if="$(eval map != '')" pkg="map_server" type="map_server" name="map_server" output="screen" args="/svea_ws/src/svea_thesis/maps/map.yaml">
+    <node pkg="map_server" type="map_server" name="map_server" output="screen" args="/svea_ws/src/svea_thesis/maps/map.yaml">
         <param name="frame_id" value="$(arg map_frame)"/>
     </node>
 
     <include file="$(find svea_thesis)/launch/aruco_transform.launch"/>
     <!-- check the transform from the svea_sensors/transforms.launch -->
 
-    <include file="$(find svea_thesis)/launch/camera.launch">
-        <arg name="camera_info_file"        value="$(arg camera_info_file)"/>
-        <arg name="image_width"       value="$(arg image_width)"/>
-        <arg name="image_height"      value="$(arg image_height)"/>
-    </include>
+    <!-- <include file="$(find svea_thesis)/launch/camera.launch"> -->
+        <!-- <arg name="camera_info_file"        value="$(arg camera_info_file)"/> -->
+        <!-- <arg name="image_width"       value="$(arg image_width)"/> -->
+        <!-- <arg name="image_height"      value="$(arg image_height)"/> -->
+    <!-- </include> -->
     
     <node name="aruco_detect" pkg="svea_thesis" type="aruco_detect.py" output="screen">
         <param name="sub_image"         value="$(arg camera_image_topic)"/>
@@ -49,12 +49,12 @@
         <param name="aruco_tf_name"     value="$(arg aruco_tf_name)"/>
     </node>
 
-    <node name="ref_gps_frame" pkg="svea_thesis" type="ref_gps_frame.py"  output="screen">
-        <param name="is_indoors"        value="$(arg is_indoors)"/>
-        <rosparam subst_value="true">
-        reference_map: [$(arg lat), $(arg lon)]
-        </rosparam>
-    </node>
+    <!-- <node name="ref_gps_frame" pkg="svea_thesis" type="ref_gps_frame.py"  output="screen"> -->
+        <!-- <param name="is_indoors"        value="$(arg is_indoors)"/> -->
+        <!-- <rosparam subst_value="true"> -->
+        <!-- reference_map: [$(arg lat), $(arg lon)] -->
+        <!-- </rosparam> -->
+    <!-- </node> -->
     
     <node name="buffer_aruco_msg" pkg="svea_thesis" type="buffer_aruco_msg.py"  output="screen"/>
 
@@ -62,17 +62,17 @@
         <param name="map_frame" value="$(arg map_frame)"/>
     </node>
     
-     <node if="$(arg make_rosbag)" pkg="rosbag" type="record" name="rosbag_record"
-       args="record -o /svea_ws/src/svea_thesis/ricatti_localization
-       /aruco/detection
-       /aruco/detection/Groundtruth
-       /camera/camera_info
-       /actuation_twist
-       /gps/fix
-       /odometry/filtered
-       /imu/data"/>   
+     <!-- <node if="$(arg make_rosbag)" pkg="rosbag" type="record" name="rosbag_record" -->
+       <!-- args="record -o /svea_ws/src/svea_thesis/ricatti_localization -->
+       <!-- /aruco/detection -->
+       <!-- /aruco/detection/Groundtruth -->
+       <!-- /camera/camera_info -->
+       <!-- /actuation_twist -->
+       <!-- /gps/fix -->
+       <!-- /odometry/filtered -->
+       <!-- /imu/data"/>    -->
 
-    <!-- <node name="MocapAruco" pkg="svea_thesis" type="MocapAruco.py" output="screen"/> -->
+        <!-- <node name="MocapAruco" pkg="svea_thesis" type="MocapAruco.py" output="screen"/> -->
 
     <!-- <node name="nats_connector" pkg="nats_ros_connector" type="nats_connector.py" output="screen">
         <remap from="svea5/aruco/detection" to="/aruco/detection"/>

@@ -19,7 +19,8 @@ class reference_gps_frame:
 
         # Reference GPS latitude, Longitude
         self.reference_aruco = rospy.get_param("~reference_aruco", [59.350775, 18.068076]) #ITRL
-        self.reference_map = rospy.get_param("~reference_map", [59.350775,18.068094]) #
+        self.reference_map = rospy.get_param("~reference_map", [59.4039043, 17.9518479]) #
+        
         self.is_indoors = rospy.get_param("~is_indoors", True)
 
         # Publisher
@@ -43,10 +44,11 @@ class reference_gps_frame:
             FixedGpsFrame.child_frame_id = name
             q = [0.0, 0.0, 1.0, 1.0]
             q /= np.linalg.norm(q)
-            FixedGpsFrame.transform.translation = Vector3(*[0.0, 0.0, 0.0])
+            FixedGpsFrame.transform.translation = Vector3(*[5.0, 2.0, 0.0])
             FixedGpsFrame.transform.rotation = Quaternion(*q)
         else:
-            FixedGpsFrame.header.frame_id = "utm"
+            FixedGpsFrame.header.frame_id = name
+            FixedGpsFrame.child_frame_id = "utm"
             FixedGpsFrame.transform.translation = Vector3(*[utm[0], utm[1], 0.0])
             FixedGpsFrame.transform.rotation = Quaternion(*[0.0, 0.0, 0.0, 1.0])
         self.static_br.sendTransform(FixedGpsFrame)

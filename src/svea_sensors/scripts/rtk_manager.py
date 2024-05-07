@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from serial import Serial, SerialException
+from serial import Serial, SerialException, EIGHTBITS, PARITY_NONE, STOPBITS_ONE
 from pyubx2 import (
     UBXReader,
     SET,
@@ -15,8 +15,7 @@ from threading import Thread
 from sensor_msgs.msg import NavSatFix, NavSatStatus
 from nmea_msgs.msg import Sentence
 from std_msgs.msg import Float64
-from mavros_msgs.msg import RTCM
-
+from rtcm_msgs.msg import Message
 __author__ = "Mustafa Al-Janabi"
 __email__ = "musaj@kth.se"
 __license__ = "MIT"
@@ -63,15 +62,22 @@ class RTKManager:
 
     def __init__(self):
         # Read parameters
-        self.device = rospy.get_param("~device", "ttyACM0")
-        self.baud = rospy.get_param("~baud", 250000)
+        self.device = rospy.get_param("~device", "/dev/ttyACM0") #UART: /dev/ttyS0
+        if "/dev/ttyACM" in self.device or "/dev/gps" in self.device:
+            self.rateUART1 = 0
+            self.rateUSB = 1
+        else:
+            self.rateUART1 = 1
+            self.rateUSB = 0
+        self.baud = rospy.get_param("~baud", 250000) #UART: 38400
         self.frame_id = rospy.get_param("~gps_frame", "gps")
         self.dynamic_model = rospy.get_param("~dynamic_model", "portable")
         # Setup ROS Rate
         self.rate = rospy.Rate(self.RATE)
         #  Open serial port
         try:
-            self.serial = Serial(self.device, self.baud, timeout=3)
+            self.serial = Serial(self.device, self.baud, bytesize=EIGHTBITS, parity=PARITY_NONE,stopbits=STOPBITS_ONE,timeout=2, exclusive=True)
+
         except SerialException as ex:
             rospy.logfatal(
                 "Could not open serial port: I/O error({0}): {1}".format(
@@ -82,6 +88,8 @@ class RTKManager:
         self.ubx_reader = UBXReader(
             self.serial, protfilter=UBX_PROTOCOL + NMEA_PROTOCOL
         )  # 1:NEMA 2:UBX 3:NMEA+UBX 4:RTCM 7: NMEA+UBX+RTCM
+        raw_msg, parsed_msg = self.ubx_reader.read()
+        print("test read", parsed_msg)
         # Create publishers
         self._init_pub()
         # Create subscriber
@@ -94,7 +102,7 @@ class RTKManager:
     def _init_pub(self):
         """Initializes publishers for necessary and sufficient topics"""
         # Nmea message which get sent to virtual NTRIP servers which give correction message from closes base station based on own location
-        self.nmea_pub = rospy.Publisher("/ntrip_client/nmea", Sentence, queue_size=10)
+        self.nmea_pub = rospy.Publisher("/nmea", Sentence, queue_size=10)
         # Publish the satellite fix
         self.fix_pub = rospy.Publisher("fix", NavSatFix, queue_size=10)
         # Heading of 2-D motion in [deg]
@@ -125,19 +133,21 @@ class RTKManager:
     def _init_sub(self):
         """Initialize subscribers"""
         # Subscribe to RTCM correction messages from NTRIP Client
-        rospy.Subscriber("/ntrip_client/rtcm", RTCM, self._handle_rtcm_cb)
+        rospy.Subscriber("/rtcm", Message, self._handle_rtcm_cb)
 
     def set_config(self, msgClass, msgID, **kwargs):
         """Utility function which write a configuration message to receiver and awaits an acknowledgement."""
-        cfg = UBXMessage(
-            "CFG", "CFG-MSG", SET, msgClass=msgClass, msgID=msgID, **kwargs
-        )
-        self.serial.write(cfg.serialize())
-        _, parsed_msg = self.ubx_reader.read()
-        assert (
-            parsed_msg.identity == "ACK-ACK"
-        ), f"Failed to set CFG-MSG for msgClass:{msgClass} msgID:{msgID}"
+        for i in range(10):
+            print(f"{msgClass}, {msgID}, trial {i}")
+            cfg = UBXMessage(
+                "CFG", "CFG-MSG", SET, msgClass=msgClass, msgID=msgID, **kwargs
+            )
 
+            self.serial.write(cfg.serialize())
+            _, parsed_msg = self.ubx_reader.read()
+            # assert (
+                # parsed_msg.identity == "ACK-ACK"
+            # ), f"Failed to set CFG-NAV5 for msgclass:{msgClass}, {msgID}."
     def set_dynamic_model(self, model):
         # CFG-MSG-NAV5 set dynModel (dynamic Model) to model
         # To understand the CFG-NAV5 msg https://github.com/KumarRobotics/ublox/blob/master/ublox_msgs/msg/CfgNAV5.msg
@@ -158,19 +168,24 @@ class RTKManager:
             )
             self.serial.write(cfg.serialize())
             _, parsed_msg = self.ubx_reader.read()
-            assert (
-                parsed_msg.identity == "ACK-ACK"
-            ), f"Failed to set CFG-NAV5 for dynamic model:{model}."
+            # assert (
+                # parsed_msg.identity == "ACK-ACK"
+            # ), f"Failed to set CFG-NAV5 for dynamic model:{model}."
 
     def setup_receiver(self):
+        # return
+        # self.set_config(0x01, 0x09)
         # CFG-MSG-NAV-STATUS set rateUSB to 0
-        self.set_config(0x01, 0x03, rateUSB=0)
-        # CFG-MSG-NAV-PVT set rateUSB to 1
-        self.set_config(0x01, 0x07, rateUSB=1)
-        # CFG-MSG-NAV-COV set rateUSB to 1
-        self.set_config(0x01, 0x36, rateUSB=1)
+        self.set_config(0x01, 0x03, rateUART1=0, rateUSB=0)
+
         # CFG-MSG-RXM-RTCM set rateUSB to 1
-        self.set_config(0x02, 0x32, rateUSB=1)
+        self.set_config(0x02, 0x32, rateUART1=self.rateUART1, rateUSB=self.rateUSB)
+
+        # CFG-MSG-NAV-PVT set rateUSB to 1
+        self.set_config(0x01, 0x07, rateUART1=self.rateUART1, rateUSB=self.rateUSB)
+
+        # CFG-MSG-NAV-COV set rateUSB to 1
+        self.set_config(0x01, 0x36, rateUART1=self.rateUART1, rateUSB=self.rateUSB)
         # CFG-NAV5 set dynModel to self.dynamic_model
         self.set_dynamic_model(self.dynamic_model)
 
@@ -179,19 +194,31 @@ class RTKManager:
         self.nav_sat_fix_msg = NavSatFix()
         Thread(target=self._read_serial_handler, args=()).start()
 
+
     def _handle_rtcm_cb(self, msg):
         """Callback which listens to RTCM messages from NTRIP clients and writes them to the receiver."""
-        raw_rtcm = msg.data
+        raw_rtcm = msg.message
         self.serial.write(raw_rtcm)
 
     def _read_serial_handler(self):
         """Manager of all incoming messages from Serial port, reads from serial port at self.RATE [Hz]"""
         while not rospy.is_shutdown():
+            # try:
             raw_msg, parsed_msg = self.ubx_reader.read()
+            # except Exception as e:
+                # rospy.logerr(f"cant read {e}")
+                # try:
+                    # raw_msg, parsed_msg = self.ubx_reader.read()
+                # except Exception as e:
+                    # rospy.logerr(f"cant read {e}")
+                    # self.rate.sleep()
+                    # return
             msg_protocol = protocol(raw_msg)
             if msg_protocol == UBX_PROTOCOL:
                 self.nav_sat_fix_msg.header.stamp = rospy.Time().now()
                 self.nav_sat_fix_msg.header.frame_id = self.frame_id
+                if parsed_msg.identity == "ACK-ACK":
+                    print(parsed_msg)
                 if parsed_msg.identity == "NAV-PVT":
                     # Understanding the PVT message
                     # https://github.com/KumarRobotics/ublox/blob/master/ublox_msgs/msg/NavPVT.msg
@@ -278,7 +305,7 @@ class RTKManager:
 
                     # In some other Ublox GPS library the covariance is estimated by
                     # computing the diagonal elements using the hAcc, and vAcc values in the
-                    # PVT message. In such case we convert the values to meters and raise by 2 to get
+                    # PVT message. In such case we convert the values to meters and raise by 2 to g
                     # an approximation of the
                     # positive_covariance[0] = (pvt_msg.hAcc / 1e3) ** 2
                     # positive_covariance[4] = (pvt_msg.hAcc / 1e3) ** 2

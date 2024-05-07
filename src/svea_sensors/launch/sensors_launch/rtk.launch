@@ -31,7 +31,8 @@
     <!-- <arg name="username"        default=""/> -->
     <!-- <arg name="password"        default=""/> -->
     
-
+    <!-- sudo systemctl stop serial-getty@ttyS0.service -->
+    <!-- sudo systemctl disable serial-getty@ttyS0.service -->
     <!-- START UBLOX ZED-F9P RTK MANAGER NODE -->
     <node pkg="svea_sensors" type="rtk_manager.py" name="rtk_manager" output="screen" ns="gps">
         <param name="device"        value="$(arg gps_device)"/>

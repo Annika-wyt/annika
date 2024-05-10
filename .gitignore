@@ -18,7 +18,9 @@ site/
 
 simulated_result/
 result/
-cad/
+*.blend
+*.blend1
+
 
 *.mp4
 

@@ -8,7 +8,7 @@ class Republisher:
         rospy.init_node('republisher_node', anonymous=True)
         self.original_topic = '/aruco/detection'  # Change this to your original topic
         self.republish_topic = '/aruco/detection/more'  # Change this to your republish topic
-        self.rate = rospy.Rate(60)  # Change the rate as desired (5 Hz in this example)
+        self.rate = rospy.Rate(40)  # Change the rate as desired (5 Hz in this example)
         self.buffered_message = None
         rospy.Subscriber(self.original_topic, ArucoArray, self.callback)
         self.publisher = rospy.Publisher(self.republish_topic, ArucoArray, queue_size=10)

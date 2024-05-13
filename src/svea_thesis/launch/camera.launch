@@ -3,8 +3,8 @@
     <!-- Argument for camera -->
     <arg name="camera_device_id"        default="1"/>
     <arg name="camera_info_file"        default="logitech_web_camera_1024_576.yaml"/>
-    <arg name="image_width"             default="1024"/>
-    <arg name="image_height"             default="576"/>
+    <arg name="image_width"             default="1280"/>
+    <arg name="image_height"             default="720"/>
     <!-- Nodes -->
     <node name="camera" pkg="cv_camera" type="cv_camera_node" output="screen">
         <param name="camera_info_url"   value="file://$(find svea_thesis)/camera_params/$(arg camera_info_file)" />

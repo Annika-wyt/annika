@@ -10,12 +10,13 @@ Panels:
         - /TF1
         - /TF1/Frames1
         - /OdometryGPS1/Shape1
+        - /OdometryLocal1
         - /OdometryLocal1/Shape1
         - /OdometryLocal1/Covariance1
         - /OdometryGlobal1
         - /OdometryGlobal1/Shape1
       Splitter Ratio: 0.5529412031173706
-    Tree Height: 842
+    Tree Height: 695
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -73,45 +74,11 @@ Visualization Manager:
       Enabled: true
       Filter (blacklist): ""
       Filter (whitelist): ""
-      Frame Timeout: 10
+      Frame Timeout: 1000
       Frames:
         All Enabled: false
-        MapAruco10:
-          Value: true
-        MapAruco11:
-          Value: true
-        MapAruco12:
-          Value: true
-        MapAruco13:
-          Value: true
-        MapAruco15:
-          Value: true
-        aruco10:
-          Value: false
-        aruco11:
-          Value: false
-        aruco12:
-          Value: false
-        aruco13:
-          Value: false
-        aruco15:
-          Value: false
-        arucoCamera10:
-          Value: false
-        arucoCamera11:
-          Value: true
-        arucoCamera12:
-          Value: true
-        arucoCamera13:
-          Value: false
-        arucoCamera15:
-          Value: false
         base_link:
           Value: true
-        camera:
-          Value: false
-        cube0:
-          Value: false
         gps:
           Value: false
         imu:
@@ -120,22 +87,14 @@ Visualization Manager:
           Value: false
         map:
           Value: true
-        mocap:
-          Value: true
         odom:
-          Value: true
-        rosie0:
           Value: false
-        rosie1:
-          Value: false
-        rosie2:
-          Value: false
-        svea2:
-          Value: true
         t265_camera_odom_frame:
           Value: false
         t265_camera_pose_frame:
           Value: false
+        utm:
+          Value: true
       Marker Alpha: 1
       Marker Scale: 1
       Name: TF
@@ -143,44 +102,10 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        mocap:
-          aruco10:
-            {}
-          aruco11:
-            {}
-          aruco12:
-            {}
-          aruco13:
-            {}
-          aruco15:
-            {}
-          cube0:
-            {}
+        utm:
           map:
-            MapAruco10:
-              {}
-            MapAruco11:
-              {}
-            MapAruco12:
-              {}
-            MapAruco13:
-              {}
-            MapAruco15:
-              {}
             odom:
               base_link:
-                arucoCamera10:
-                  {}
-                arucoCamera11:
-                  {}
-                arucoCamera12:
-                  {}
-                arucoCamera13:
-                  {}
-                arucoCamera15:
-                  {}
-                camera:
-                  {}
                 gps:
                   {}
                 imu:
@@ -191,24 +116,16 @@ Visualization Manager:
                   {}
               t265_camera_odom_frame:
                 {}
-          rosie0:
-            {}
-          rosie1:
-            {}
-          rosie2:
-            {}
-          svea2:
-            {}
       Update Interval: 0
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /waypoints
       Name: MarkerArray
       Namespaces:
         {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Angle Tolerance: 0.10000000149011612
       Class: rviz/Odometry
       Covariance:
@@ -236,9 +153,9 @@ Visualization Manager:
         Axes Length: 1
         Axes Radius: 0.10000000149011612
         Color: 255; 25; 0
-        Head Length: 0.30000001192092896
+        Head Length: 0.10000000149011612
         Head Radius: 0.10000000149011612
-        Shaft Length: 0.20000000298023224
+        Shaft Length: 0.10000000149011612
         Shaft Radius: 0.05000000074505806
         Value: Arrow
       Topic: /odometry/gps
@@ -262,7 +179,7 @@ Visualization Manager:
           Value: true
         Value: false
       Enabled: true
-      Keep: 100
+      Keep: 1000
       Name: OdometryLocal
       Position Tolerance: 0.10000000149011612
       Queue Size: 10
@@ -297,7 +214,7 @@ Visualization Manager:
           Value: true
         Value: false
       Enabled: true
-      Keep: 100
+      Keep: 1000
       Name: OdometryGlobal
       Position Tolerance: 0.10000000149011612
       Queue Size: 10
@@ -306,9 +223,9 @@ Visualization Manager:
         Axes Length: 1
         Axes Radius: 0.10000000149011612
         Color: 32; 74; 135
-        Head Length: 0.30000001192092896
+        Head Length: 0.10000000149011612
         Head Radius: 0.10000000149011612
-        Shaft Length: 0.20000000298023224
+        Shaft Length: 0.10000000149011612
         Shaft Radius: 0.05000000074505806
         Value: Arrow
       Topic: /odometry/filtered/global
@@ -325,6 +242,14 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
+      Value: false
+    - Class: rviz/MarkerArray
+      Enabled: false
+      Marker Topic: /visual/cameraaruco
+      Name: MarkerArray
+      Namespaces:
+        {}
+      Queue Size: 100
       Value: false
   Enabled: true
   Global Options:
@@ -354,7 +279,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 6.557363986968994
+      Distance: 10.548288345336914
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -362,27 +287,27 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.6841618418693542
-        Y: 0.24248145520687103
-        Z: 0.25634893774986267
+        X: 1.428762674331665
+        Y: -0.475167840719223
+        Z: -0.6135848164558411
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.514797031879425
+      Pitch: 1.179796814918518
       Target Frame: <Fixed Frame>
-      Yaw: 4.975320816040039
+      Yaw: 4.835320949554443
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 1163
+  Height: 1016
   Hide Left Dock: false
   Hide Right Dock: true
   Image:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd000000040000000000000156000003cdfc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000b0fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d000003cd000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d006100670065000000033d000000cd0000001600ffffff00000001000001010000033afc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003d0000033a000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007800000005efc0100000002fb0000000800540069006d0065010000000000000780000003bc00fffffffb0000000800540069006d0065010000000000000450000000000000000000000624000003cd00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000001560000033afc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000b0fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d0000033a000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d006100670065000000033d000000cd0000001600ffffff00000001000001010000033afc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003d0000033a000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007380000005efc0100000002fb0000000800540069006d0065010000000000000738000003bc00fffffffb0000000800540069006d00650100000000000004500000000000000000000005dc0000033a00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -391,6 +316,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: true
-  Width: 1920
-  X: 0
-  Y: 0
+  Width: 1848
+  X: 72
+  Y: 1077

@@ -25,3 +25,7 @@ result/
 *.mp4
 
 aruco_marker/
+
+test.ipynb
+temp.py
+

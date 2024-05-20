@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <launch>
     <!-- Argument for camera -->
-    <arg name="camera_device_id"        default="1"/>
-    <arg name="camera_info_file"        default="logitech_web_camera_1024_576.yaml"/>
+    <arg name="camera_device_id"        default="2"/>
+    <arg name="camera_info_file"        default="logitech_web_camera_720p_1280_720.yaml"/>
     <arg name="image_width"             default="1280"/>
     <arg name="image_height"             default="720"/>
     <!-- Nodes -->
